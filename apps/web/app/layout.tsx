@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import Header2 from "../components/mvpblocks/header-2";
+import Header from "./components/header";
+import { ThemeProvider } from "next-themes";
+import { Providers } from "./providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -22,9 +26,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className="w-full h-screen">
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="min-h-screen w-full relative">
+              {/* Azure Depths */}
+              <div
+                className="absolute inset-0 z-0"
+                style={{
+                  background: `radial-gradient(125% 125% at 50% 10%, #000000 40%, #010133 100%)`,
+                }}
+              />
+              <Header />
+              {children}
+            </div>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
