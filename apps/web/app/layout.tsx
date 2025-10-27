@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
 import Header2 from "../components/mvpblocks/header-2";
 import Header from "./components/header";
 import { ThemeProvider } from "next-themes";
 import { Providers } from "./providers";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-});
+import { SidebarDemo } from "./dashboard";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -27,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="w-full h-screen">
+      <body className="w-full h-screen font-inter">
         <Providers>
           <ThemeProvider
             attribute="class"
@@ -35,15 +26,22 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="min-h-screen w-full relative">
-              {/* Azure Depths */}
+            <div className="min-h-screen w-full relative rounded-tl-2xl overflow-hidden">
+              {/* Aurora Edge Glow Background */}
               <div
-                className="absolute inset-0 z-0"
+                className="absolute inset-0 -z-10"
                 style={{
-                  background: `radial-gradient(125% 125% at 50% 10%, #000000 40%, #010133 100%)`,
+                  background:
+                    "radial-gradient(ellipse 50% 100% at 10% 0%, rgba(226, 232, 240, 0.15), transparent 65%), #ffffff",
                 }}
               />
-              <Header />
+              <div
+                className="absolute inset-0 -z-10 dark:block hidden"
+                style={{
+                  background:
+                    "radial-gradient(ellipse 50% 100% at 10% 0%, rgba(226, 232, 240, 0.15), transparent 65%), oklch(0.2 0 0)",
+                }}
+              />
               {children}
             </div>
           </ThemeProvider>

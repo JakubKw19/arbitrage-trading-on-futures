@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { MarketGateway } from 'src/gateway/market.gateway';
 import WebSocket from 'ws';
 import { MarketExchange } from './types/marketExchanges';
-import { marketExchangesSubject } from './market.pubsub';
+import { addExchange, marketExchangesSubject } from './market.pubsub';
 
 @Injectable()
 export class OkxClient implements OnModuleInit {
@@ -12,15 +12,37 @@ export class OkxClient implements OnModuleInit {
     this.client = new WebSocket('wss://ws.okx.com:8443/ws/v5/public');
   }
 
-  onModuleInit() {
-    console.log('hi');
+  async getAllTrades() {
+    const res = await fetch(
+      'https://www.okx.com/api/v5/public/instruments?instType=SWAP',
+    );
+    const data = await res.json();
+
+    const instruments = data.data
+      .filter((inst) => inst.state === 'live')
+      .map((inst) => inst.instFamily);
+
+    addExchange({
+      name: 'okx',
+      cryptoPairs: instruments.map((s) => {
+        return {
+          pair: s,
+          pairCode:
+            s.split('-')[0].toLowerCase() + s.split('-')[1].toLowerCase(),
+        };
+      }),
+    });
+    return instruments;
+  }
+
+  async onModuleInit() {
+    const trades = await this.getAllTrades();
     this.client.on('open', () => {
       const subscribe = {
         op: 'subscribe',
-        args: [
-          { channel: 'books5', instType: 'FUTURES', instId: 'BNB-USDT' },
-          { channel: 'books5', instType: 'FUTURES', instId: 'BTC-USDT' },
-        ],
+        args: trades.map((s) => {
+          return { channel: 'books5', instType: 'SWAP', instId: s };
+        }),
       };
       this.client.send(JSON.stringify(subscribe));
     });

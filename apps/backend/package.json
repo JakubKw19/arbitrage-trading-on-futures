@@ -9,7 +9,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "generete": "cross-env TRPC_SCHEMA_GENERATION=true nest start",
+    "generate": "cross-env TRPC_SCHEMA_GENERATION=true nest start",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",

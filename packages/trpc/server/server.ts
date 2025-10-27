@@ -5,6 +5,27 @@ undefined;
 const t = initTRPC.create();
 const router = t.router;
 const publicProcedure = t.procedure;
+export const MarketGetSupportedExchangesDataInputSchema = z.object({});
+export type MarketGetSupportedExchangesDataInputSchemaType = z.infer<
+  typeof MarketGetSupportedExchangesDataInputSchema
+>;
+export const SchemaZAE2C4 = z.object({
+  pair: z.string(),
+  pairCode: z.string(),
+});
+export type SchemaZAE2C4Type = z.infer<typeof SchemaZAE2C4>;
+export const SchemaMYBPRI = z.object({
+  name: z.string(),
+  get cryptoPairs(): z.ZodArray<typeof SchemaZAE2C4> {
+    return z.array(SchemaZAE2C4) as z.ZodArray<typeof SchemaZAE2C4>;
+  },
+});
+export type SchemaMYBPRIType = z.infer<typeof SchemaMYBPRI>;
+export const MarketGetSupportedExchangesDataOutputSchema =
+  z.array(SchemaMYBPRI);
+export type MarketGetSupportedExchangesDataOutputSchemaType = z.infer<
+  typeof MarketGetSupportedExchangesDataOutputSchema
+>;
 export const MarketOnMarketUpdateInputSchema = z.object({});
 export type MarketOnMarketUpdateInputSchemaType = z.infer<
   typeof MarketOnMarketUpdateInputSchema
@@ -30,6 +51,10 @@ export type MarketOnMarketUpdateOutputSchemaType = z.infer<
 >;
 
 const MarketRouter = router({
+  getSupportedExchangesData: publicProcedure
+    .input(MarketGetSupportedExchangesDataInputSchema)
+    .output(MarketGetSupportedExchangesDataOutputSchema)
+    .query(async () => "" as any),
   onMarketUpdate: publicProcedure
     .input(MarketOnMarketUpdateInputSchema)
     .subscription(async function* () {

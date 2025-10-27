@@ -21,7 +21,7 @@ export default async function Header() {
   const headersList = headers();
   const pathname = (await headersList).get("x-pathname") || "";
   return (
-    <header className="shadow-s fixed z-50 w-full border-b px-4 backdrop-blur-xl md:px-6">
+    <header className="shadow-s text-foreground font-bold fixed z-50 w-full border-b px-4 backdrop-blur-xl md:px-6">
       <div className="flex h-16 justify-between gap-4">
         <div className="flex gap-2">
           <div className="flex items-center md:hidden">
@@ -62,7 +62,7 @@ export default async function Header() {
                       <NavigationMenuItem key={index} className="w-full">
                         <NavigationMenuLink
                           href={link.href}
-                          className="py-1.5"
+                          className="py-1.5 font-bold"
                           active={pathname === link.href}
                         >
                           {link.label}
@@ -79,27 +79,29 @@ export default async function Header() {
               {/* <Logo /> */}
               Arbitage
             </a>
-            <NavigationMenu className="h-full *:h-full max-md:hidden">
-              <NavigationMenuList className="h-full gap-2">
-                {navigationLinks.map((link, index) => (
-                  <NavigationMenuItem key={index} className="h-full">
-                    <NavigationMenuLink
-                      active={pathname === link.href}
-                      href={link.href}
-                      className="hover:text-primary border-b-primary hover:border-b-primary data-[active]:border-b-primary text-md h-full justify-center rounded-none border-y-2 border-transparent py-1.5 font-medium hover:bg-transparent data-[active]:bg-transparent!"
-                    >
-                      {link.label}
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                ))}
-              </NavigationMenuList>
-            </NavigationMenu>
           </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <NavigationMenu className="h-full *:h-full max-md:hidden">
+            <NavigationMenuList className="h-full gap-2">
+              {navigationLinks.map((link, index) => (
+                <NavigationMenuItem key={index} className="h-full">
+                  <NavigationMenuLink
+                    active={pathname === link.href}
+                    href={link.href}
+                    className="hover:text-primary border-b-primary hover:border-b-primary data-[active]:border-b-primary text-md h-full justify-center rounded-none font-medium border-y-2 border-transparent py-1.5 hover:bg-transparent data-[active]:bg-transparent!"
+                  >
+                    {link.label}
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              ))}
+            </NavigationMenuList>
+          </NavigationMenu>
         </div>
         {/* Right side */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button asChild size="sm" className="text-sm">
+          <Button asChild size="sm" className="text-md p-4">
             <a href="/login">Sign In</a>
           </Button>
           {/* <Button asChild size="sm" className="text-sm">
