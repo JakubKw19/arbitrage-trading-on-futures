@@ -44,7 +44,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Status, StatusIndicator } from "components/kibo-ui/status";
-import { AppRouter } from "@repo/trpc/server/server";
+import {
+  AppRouter,
+  MarketOnMarketUpdateOutputSchemaType,
+} from "@repo/trpc/server/server";
 import { inferRouterOutputs } from "@trpc/server";
 
 const exchanges = [
@@ -100,6 +103,7 @@ export type SupportedExchangesOutput =
   RouterOutput["MarketRouter"]["getSupportedExchangesData"];
 
 export default function Page() {
+  const trpcClient = getTrpcClient();
   const [status, setStatus] = React.useState<string>("Connected");
   const [currentExchangeFrom, setCurrentExchangeFrom] =
     React.useState<string>("");
@@ -118,8 +122,9 @@ export default function Page() {
   >([]);
   // const [commonPairs, setCommonPairs]
   const [data, setData] = React.useState<MarketData[]>(mockData);
+  const [arbitrageData, setArbitrageData] =
+    React.useState<MarketOnMarketUpdateOutputSchemaType>([]);
   useEffect(() => {
-    const trpcClient = getTrpcClient();
     const getPairsForExchanges = async () => {
       try {
         const data =
@@ -137,7 +142,8 @@ export default function Page() {
       {},
       {
         onData(data) {
-          // console.log("Market update:", data);
+          console.log("Market update:", data);
+          setArbitrageData(data);
         },
         onError(err) {
           console.error(err);
@@ -176,7 +182,7 @@ export default function Page() {
     }
   }, [currentExchangeFrom, currentExchangeTo, exchangesData, filters]);
 
-  const onFilterAdd = () => {
+  const onFilterAdd = async () => {
     setFilters((prev) => [
       ...prev,
       {
@@ -186,6 +192,11 @@ export default function Page() {
         commonPairs: pairs,
       },
     ]);
+    const data = await trpcClient.MarketRouter.getCurrentExchangesData.query({
+      exchangeFrom: currentExchangeFrom,
+      exchangeTo: currentExchangeTo,
+    });
+    console.log(data);
     setPairs([]);
     setCurrentPair("");
     setCurrentExchangeTo("");
@@ -261,7 +272,7 @@ export default function Page() {
                 <span className="text-foreground">
                   {filter.exchangeFrom} - {filter.exchangeTo}
                 </span>
-                <div className="flex gap-2">
+                {/* <div className="flex gap-2">
                   {filter.commonPairs.map((pair, index) => (
                     <div
                       key={index}
@@ -276,24 +287,26 @@ export default function Page() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
         </CardHeader>
         <CardContent>
-          {data.map((item, index) => (
-            <Card key={index} className="mb-4 p-4 border">
-              <CardTitle className="text-xl font-semibold mb-2">
-                {item.pair}
-              </CardTitle>
-              <CardContent>
-                Buy on {item.exchangeFrom.name} at {item.exchangeFrom.bestAsk}{" "}
-                and sell on {item.exchangeTo.name} at {item.exchangeTo.bestBid}{" "}
-                - Arbitrage: {item.arbitragePercentage}%
-              </CardContent>
-            </Card>
-          ))}
+          {arbitrageData
+            ? arbitrageData.map((item, index) => (
+                <Card key={index} className="mb-4 p-4 border">
+                  <CardTitle className="text-xl font-semibold mb-2">
+                    {item.exchangeFrom} - {item.exchangeTo} {item.symbol}
+                  </CardTitle>
+                  <CardContent>
+                    Long on {item.exchangeFrom} at {item.bids[0].price} and
+                    short on {item.exchangeTo} at {item.asks[0].price} -
+                    Arbitrage: {item.spreadPercent}%
+                  </CardContent>
+                </Card>
+              ))
+            : null}
         </CardContent>
       </Card>
     </div>

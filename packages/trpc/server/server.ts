@@ -26,6 +26,19 @@ export const MarketGetSupportedExchangesDataOutputSchema =
 export type MarketGetSupportedExchangesDataOutputSchemaType = z.infer<
   typeof MarketGetSupportedExchangesDataOutputSchema
 >;
+export const getSupportedExchangesDataInputSchema = z
+  .object({
+    exchangeFrom: z.string(),
+    exchangeTo: z.string(),
+  })
+  .describe("getSupportedExchangesDataInputSchema");
+export type getSupportedExchangesDataInputSchemaType = z.infer<
+  typeof getSupportedExchangesDataInputSchema
+>;
+export const MarketGetCurrentExchangesDataOutputSchema = z.array(SchemaMYBPRI);
+export type MarketGetCurrentExchangesDataOutputSchemaType = z.infer<
+  typeof MarketGetCurrentExchangesDataOutputSchema
+>;
 export const MarketOnMarketUpdateInputSchema = z.object({});
 export type MarketOnMarketUpdateInputSchemaType = z.infer<
   typeof MarketOnMarketUpdateInputSchema
@@ -35,9 +48,12 @@ export const SchemaWR6RI9 = z.object({
   quantity: z.number(),
 });
 export type SchemaWR6RI9Type = z.infer<typeof SchemaWR6RI9>;
-export const MarketOnMarketUpdateOutputSchema = z.object({
-  exchange: z.enum(["binance", "okx"]),
+export const SchemaLPL4QZ = z.object({
+  exchangeFrom: z.enum(["binance", "okx"]),
+  exchangeTo: z.enum(["binance", "okx"]),
   symbol: z.string(),
+  spread: z.number(),
+  spreadPercent: z.number(),
   get bids(): z.ZodArray<typeof SchemaWR6RI9> {
     return z.array(SchemaWR6RI9) as z.ZodArray<typeof SchemaWR6RI9>;
   },
@@ -46,6 +62,8 @@ export const MarketOnMarketUpdateOutputSchema = z.object({
   },
   timestamp: z.number(),
 });
+export type SchemaLPL4QZType = z.infer<typeof SchemaLPL4QZ>;
+export const MarketOnMarketUpdateOutputSchema = z.array(SchemaLPL4QZ);
 export type MarketOnMarketUpdateOutputSchemaType = z.infer<
   typeof MarketOnMarketUpdateOutputSchema
 >;
@@ -54,6 +72,10 @@ const MarketRouter = router({
   getSupportedExchangesData: publicProcedure
     .input(MarketGetSupportedExchangesDataInputSchema)
     .output(MarketGetSupportedExchangesDataOutputSchema)
+    .query(async () => "" as any),
+  getCurrentExchangesData: publicProcedure
+    .input(getSupportedExchangesDataInputSchema)
+    .output(MarketGetCurrentExchangesDataOutputSchema)
     .query(async () => "" as any),
   onMarketUpdate: publicProcedure
     .input(MarketOnMarketUpdateInputSchema)

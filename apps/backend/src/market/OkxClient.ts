@@ -1,73 +1,187 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { MarketGateway } from 'src/gateway/market.gateway';
-import WebSocket from 'ws';
-import { MarketExchange } from './types/marketExchanges';
-import { addExchange, marketExchangesSubject } from './market.pubsub';
+import {
+  Injectable,
+  type OnModuleInit,
+  type OnModuleDestroy,
+} from '@nestjs/common';
+import type WebSocket from 'ws';
+import type {
+  AvailableExchanges,
+  MarketExchange,
+} from './types/marketExchanges';
+import {
+  addExchange,
+  marketExchangesSubject,
+  updatePairExchange,
+} from './market.pubsub';
+import type {
+  OkxBookEntry,
+  OkxInstrumentsResponse,
+  OkxWebSocketMessage,
+} from './types/api-responses';
+import { ConfigService } from '../config/config.service';
+import { MarketClient } from './MarketClient.base';
 
 @Injectable()
-export class OkxClient implements OnModuleInit {
-  private client: WebSocket;
+export class OkxClient
+  extends MarketClient
+  implements OnModuleInit, OnModuleDestroy
+{
+  private subscriptionArgs: Array<{
+    channel: string;
+    instType: string;
+    instId: string;
+  }> = [];
 
-  constructor(private readonly gateway: MarketGateway) {
-    this.client = new WebSocket('wss://ws.okx.com:8443/ws/v5/public');
+  constructor(configService: ConfigService) {
+    super(configService, 'okx');
   }
 
   async getAllTrades() {
-    const res = await fetch(
-      'https://www.okx.com/api/v5/public/instruments?instType=SWAP',
+    try {
+      const res = await fetch(
+        `${this.configService.exchanges.okx.restUrl}/api/v5/public/instruments?instType=SWAP`,
+      );
+      if (!res.ok) {
+        throw new Error(`Failed to fetch instruments: ${res.statusText}`);
+      }
+      const data: OkxInstrumentsResponse = await res.json();
+
+      const instruments = data.data
+        .filter((inst) => inst.state === 'live')
+        .map((inst) => inst.instFamily);
+
+      addExchange({
+        name: 'okx',
+        cryptoPairs: instruments.map((s) => {
+          return {
+            pair: s,
+            pairCode:
+              s.split('-')[0].toLowerCase() + s.split('-')[1].toLowerCase(),
+          };
+        }),
+      });
+      console.log(`[okx] Loaded ${instruments.length} trading pairs`);
+      return instruments;
+    } catch (error) {
+      console.error('Failed to fetch instruments', (error as Error).message);
+      throw error;
+    }
+  }
+
+  protected handleMessage(msg: WebSocket.Data) {
+    try {
+      const json: OkxWebSocketMessage = JSON.parse(msg.toString());
+
+      if (!json.data || json.data.length === 0) {
+        return;
+      }
+
+      const data = json.data;
+
+      if (!data[0]) return;
+
+      const entry = data[0] as OkxBookEntry;
+      // console.log(entry);
+      const dataToSend: MarketExchange = {
+        exchange: 'okx',
+        symbol: entry.instId.replace('-', ''),
+        bids: entry.bids.map((bid) => ({
+          price: Number.parseFloat(bid[0]),
+          quantity: Number.parseFloat(bid[1]),
+        })),
+        asks: entry.asks.map((ask) => ({
+          price: Number.parseFloat(ask[0]),
+          quantity: Number.parseFloat(ask[1]),
+        })),
+        timestamp: Date.now(),
+      };
+
+      updatePairExchange(dataToSend);
+    } catch (error) {
+      console.error('Failed to parse message', (error as Error).message);
+    }
+  }
+
+  protected reconnect() {
+    const wsUrl = this.configService.exchanges.okx.wsUrl;
+    this.connect(wsUrl);
+  }
+
+  protected subscribe(
+    args: Array<{ channel: string; instType: string; instId: string }>,
+  ) {
+    if (!this.client || !this.isConnected) {
+      console.warn('[okx] Cannot subscribe: not connected');
+      return;
+    }
+
+    const BATCH_SIZE = 50;
+    const batches: Array<
+      Array<{ channel: string; instType: string; instId: string }>
+    > = [];
+
+    for (let i = 0; i < args.length; i += BATCH_SIZE) {
+      batches.push(args.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(
+      `[okx] Subscribing to ${args.length} channels in ${batches.length} batches`,
     );
-    const data = await res.json();
 
-    const instruments = data.data
-      .filter((inst) => inst.state === 'live')
-      .map((inst) => inst.instFamily);
+    batches.forEach((batch, index) => {
+      setTimeout(() => {
+        if (this.client && this.isConnected) {
+          const subscribe = {
+            op: 'subscribe',
+            args: batch,
+          };
+          const message = JSON.stringify(subscribe);
 
-    addExchange({
-      name: 'okx',
-      cryptoPairs: instruments.map((s) => {
-        return {
-          pair: s,
-          pairCode:
-            s.split('-')[0].toLowerCase() + s.split('-')[1].toLowerCase(),
-        };
-      }),
+          if (message.length > 4096) {
+            console.error(
+              `[okx] Batch ${index + 1} payload too large: ${message.length} bytes`,
+            );
+            return;
+          }
+
+          this.client.send(message);
+          console.log(
+            `[okx] Subscribed to batch ${index + 1}/${batches.length} (${batch.length} channels, ${message.length} bytes)`,
+          );
+        }
+      }, index * 200);
     });
-    return instruments;
+  }
+
+  async subscribeToClient(exchanges: AvailableExchanges) {
+    const okxExchange = exchanges[0];
+    if (!okxExchange) {
+      console.warn('[okx] No okx exchange found in exchanges array');
+      return;
+    }
+
+    this.subscriptionArgs = okxExchange.cryptoPairs.map((pair) => ({
+      channel: 'books5',
+      instType: 'SWAP',
+      instId: pair.pair,
+    }));
+
+    this.subscriptionParams = this.subscriptionArgs;
+    this.subsriptionInit();
   }
 
   async onModuleInit() {
-    const trades = await this.getAllTrades();
-    this.client.on('open', () => {
-      const subscribe = {
-        op: 'subscribe',
-        args: trades.map((s) => {
-          return { channel: 'books5', instType: 'SWAP', instId: s };
-        }),
-      };
-      this.client.send(JSON.stringify(subscribe));
-    });
-    this.client.on('message', (msg: WebSocket.Data) => {
-      const json = JSON.parse(msg.toString());
-      const data = json.data;
-      if (!data) return;
-
-      const dataToSend: MarketExchange = data.map((entry: any) => ({
+    try {
+      await this.getAllTrades();
+      this.reconnect();
+    } catch (error) {
+      console.error('Failed to initialize', (error as Error).message, {
         exchange: 'okx',
-        symbol: entry.instId.replace('-', ''),
-        bids: entry.bids.map((bid: any) => ({
-          price: parseFloat(bid[0]),
-          quantity: parseFloat(bid[1]),
-        })),
-        asks: entry.asks.map((ask: any) => ({
-          price: parseFloat(ask[0]),
-          quantity: parseFloat(ask[1]),
-        })),
-        timestamp: Date.now(),
-      }));
+      });
+    }
+  }
 
-      // console.log(json);
-      // this.gateway.broadcastUpdate('okx', json);
-      marketExchangesSubject.next(dataToSend[0]);
-    });
+  onModuleDestroy() {
+    this.destroy();
   }
 }

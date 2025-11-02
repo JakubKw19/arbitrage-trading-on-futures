@@ -25,5 +25,17 @@ export const marketExchangesSchema = z.object({
   timestamp: z.number(),
 });
 
+export const arbitrageSpreadSchema = z.object({
+  exchangeFrom: z.enum(['binance', 'okx']),
+  exchangeTo: z.enum(['binance', 'okx']),
+  symbol: z.string(),
+  spread: z.number(),
+  spreadPercent: z.number(),
+  bids: z.array(orders),
+  asks: z.array(orders),
+  timestamp: z.number(),
+});
+
 export type MarketExchange = z.infer<typeof marketExchangesSchema>;
 export type AvailableExchanges = z.infer<typeof availableExchangesSchema>;
+export type ArbitrageSpread = z.infer<typeof arbitrageSpreadSchema>;
