@@ -1,0 +1,21 @@
+# .dockerignore
+
+# Ignore dependencies
+node_modules
+**/node_modules
+
+# Ignore build caches
+.turbo
+.next
+dist
+build
+out
+
+# Ignore VCS and OS junk
+.git
+.gitignore
+.DS_Store
+
+# Ignore local env files
+.env
+.env.local

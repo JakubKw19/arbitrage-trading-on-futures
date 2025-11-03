@@ -78,20 +78,35 @@ export class MarketRouter {
     //   }
     // })();
 
+    const asyncQueue: ((data: marketExchanges.ArbitrageSpread[]) => void)[] =
+      [];
     let latestData: marketExchanges.ArbitrageSpread[] | null = null;
-    let hasNewData = false;
+
     const sub = arbitrageSpreadSubject.subscribe((dataArray) => {
       latestData = dataArray;
-      hasNewData = true;
+      if (asyncQueue.length > 0) {
+        const resolve = asyncQueue.shift();
+        if (resolve) {
+          resolve(latestData);
+          latestData = null;
+        }
+      }
     });
+
     return (async function* () {
       try {
         while (true) {
-          if (hasNewData && latestData) {
-            yield latestData;
-            hasNewData = false;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          const nextData = await new Promise<marketExchanges.ArbitrageSpread[]>(
+            (resolve) => {
+              if (latestData) {
+                resolve(latestData);
+                latestData = null;
+              } else {
+                asyncQueue.push(resolve);
+              }
+            },
+          );
+          yield nextData;
         }
       } finally {
         sub.unsubscribe();

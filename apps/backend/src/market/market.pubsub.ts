@@ -15,17 +15,26 @@ export const arbitrageSpreadSubject = new BehaviorSubject<ArbitrageSpread[]>(
 
 const pairMap = new Map<string, MarketExchange>();
 
-marketExchangesSubject
-  .pipe(throttleTime(50, undefined, { leading: false, trailing: true }))
-  .subscribe(() => {
+let isProcessingUpdate = false;
+
+setInterval(() => {
+  marketExchangesSubject.next(Array.from(pairMap.values()));
+  if (isProcessingUpdate) {
+    return;
+  }
+  isProcessingUpdate = true;
+  try {
     updateArbitrageSpread();
-  });
+  } catch (err) {
+    console.error('Failed during arbitrage update:', err);
+  } finally {
+    isProcessingUpdate = false;
+  }
+}, 50);
 
 export function updatePairExchange(pairExchange: MarketExchange) {
   const key = `${pairExchange.exchange}:${pairExchange.symbol}`;
   pairMap.set(key, pairExchange);
-
-  marketExchangesSubject.next(Array.from(pairMap.values()));
 }
 
 export function updateArbitrageSpread() {
@@ -58,27 +67,35 @@ export function updateArbitrageSpread() {
         const spreadAB = bestBidA - bestAskB;
         const spreadBA = bestBidB - bestAskA;
 
-        newSpreads.push({
-          exchangeFrom: exB.exchange,
-          exchangeTo: exA.exchange,
-          symbol,
-          spread: spreadAB,
-          spreadPercent: (spreadAB / bestAskB) * 100,
-          bids: exB.bids,
-          asks: exA.asks,
-          timestamp,
-        });
+        if (spreadAB > 0) {
+          newSpreads.push({
+            exchangeFrom: exB.exchange,
+            exchangeTo: exA.exchange,
+            symbol,
+            spread: spreadAB,
+            spreadPercent: (spreadAB / bestAskB) * 100,
+            bids: exB.bids,
+            asks: exA.asks,
+            updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
+            timestampComputed: [exA.timestamp, exB.timestamp],
+            timestamp,
+          });
+        }
 
-        newSpreads.push({
-          exchangeFrom: exA.exchange,
-          exchangeTo: exB.exchange,
-          symbol,
-          spread: spreadBA,
-          spreadPercent: (spreadBA / bestAskA) * 100,
-          bids: exA.bids,
-          asks: exB.asks,
-          timestamp,
-        });
+        if (spreadBA > 0) {
+          newSpreads.push({
+            exchangeFrom: exA.exchange,
+            exchangeTo: exB.exchange,
+            symbol,
+            spread: spreadBA,
+            spreadPercent: (spreadBA / bestAskA) * 100,
+            bids: exA.bids,
+            asks: exB.asks,
+            updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
+            timestampComputed: [exA.timestamp, exB.timestamp],
+            timestamp,
+          });
+        }
       }
     }
   }

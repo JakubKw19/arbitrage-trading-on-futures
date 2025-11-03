@@ -119,7 +119,7 @@ const Dashboard = ({
   return (
     <div className="flex flex-1">
       <div className="flex h-full w-full flex-1 flex-col gap-2 rounded-tl bg-white dark:border-neutral-700 dark:bg-background">
-        <div className="relative z-10 h-full w-full p-6 md:p-10">
+        <div className="relative z-10 h-full w-full p-6 md:p-10 overflow-y-auto">
           {children}
         </div>
       </div>

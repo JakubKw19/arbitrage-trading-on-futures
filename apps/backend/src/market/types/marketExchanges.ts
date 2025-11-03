@@ -22,6 +22,7 @@ export const marketExchangesSchema = z.object({
   symbol: z.string(),
   bids: z.array(orders),
   asks: z.array(orders),
+  updateTimestamp: z.number(),
   timestamp: z.number(),
 });
 
@@ -33,6 +34,8 @@ export const arbitrageSpreadSchema = z.object({
   spreadPercent: z.number(),
   bids: z.array(orders),
   asks: z.array(orders),
+  updateTimestamp: z.array(z.number()),
+  timestampComputed: z.array(z.number()),
   timestamp: z.number(),
 });
 

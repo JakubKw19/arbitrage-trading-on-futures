@@ -6,7 +6,7 @@ import { wsLink, createWSClient } from "@trpc/client";
 import type { AppRouter } from "@repo/trpc/server/server";
 
 const wsClient = createWSClient({
-  url: "ws://localhost:5001/trpc",
+  url: process.env.NEXT_PUBLIC_WS_URL ?? "ws://backend:5001/trpc",
 });
 
 export const trpc = createTRPCReact<AppRouter>();

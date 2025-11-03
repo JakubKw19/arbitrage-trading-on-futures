@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTrpcClient } from "@/lib/trpc";
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { HiOutlineX } from "react-icons/hi";
 
 const mockData = [
@@ -124,26 +124,38 @@ export default function Page() {
   const [data, setData] = React.useState<MarketData[]>(mockData);
   const [arbitrageData, setArbitrageData] =
     React.useState<MarketOnMarketUpdateOutputSchemaType>([]);
+  const [updateTime] = React.useState(Date.now());
+
+  const latestDataRef = React.useRef(null);
   useEffect(() => {
     const getPairsForExchanges = async () => {
       try {
         const data =
           await trpcClient.MarketRouter.getSupportedExchangesData.query({});
         setExchangesData(data);
-        console.log("Supported exchanges data:", data);
+        // console.log("Supported exchanges data:", data);
       } catch (err) {
         console.error("Error fetching exchanges:", err);
       }
     };
 
     getPairsForExchanges();
-
+  }, []);
+  const [isPending, startTransition] = useTransition();
+  useEffect(() => {
     const subscription = trpcClient.MarketRouter.onMarketUpdate.subscribe(
       {},
       {
         onData(data) {
-          console.log("Market update:", data);
-          setArbitrageData(data);
+          // 2. Wrap your state update in startTransition
+          // This tells React: "This update is not urgent.
+          // Do it when you can, but DON'T block the main thread."
+          startTransition(() => {
+            setArbitrageData(data);
+          });
+
+          // Your onData callback now returns *immediately*,
+          // preventing any WebSocket message backlog.
         },
         onError(err) {
           console.error(err);
@@ -154,6 +166,7 @@ export default function Page() {
 
     return () => subscription.unsubscribe();
   }, []);
+
   useEffect(() => {
     if (currentExchangeFrom === currentExchangeTo) {
       setCurrentExchangeTo("");
@@ -217,7 +230,7 @@ export default function Page() {
 
   return (
     <div>
-      <Card className=" border-0">
+      <Card className=" border-0 overflow-y-auto">
         <CardTitle className="text-2xl mb-4 flex">
           Live Market Updates{" "}
           <Status
@@ -292,7 +305,7 @@ export default function Page() {
             ))}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className=" overflow-y-auto">
           {arbitrageData
             ? arbitrageData.map((item, index) => (
                 <Card key={index} className="mb-4 p-4 border">
@@ -302,7 +315,16 @@ export default function Page() {
                   <CardContent>
                     Long on {item.exchangeFrom} at {item.bids[0].price} and
                     short on {item.exchangeTo} at {item.asks[0].price} -
-                    Arbitrage: {item.spreadPercent}%
+                    Arbitrage: {item.spreadPercent}% TimeDiffrence:
+                    ExchangeFrom:{" "}
+                    {item.timestampComputed[0] - item.updateTimestamp[0]} ms
+                    ExchangeTo:{" "}
+                    {item.timestampComputed[1] - item.updateTimestamp[1]} ms
+                    FinalTimeDiffrence:
+                    {String(
+                      Date.now() - Math.min(...item.timestampComputed)
+                    )}{" "}
+                    ms
                   </CardContent>
                 </Card>
               ))

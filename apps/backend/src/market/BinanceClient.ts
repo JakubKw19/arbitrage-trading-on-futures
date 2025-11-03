@@ -89,6 +89,7 @@ export class BinanceClient
           price: Number.parseFloat(ask[0]),
           quantity: Number.parseFloat(ask[1]),
         })),
+        updateTimestamp: json.E,
         timestamp: Date.now(),
       };
       updatePairExchange(dataToSend);

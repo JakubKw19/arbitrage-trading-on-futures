@@ -81,10 +81,11 @@ export class OkxClient
       if (!data[0]) return;
 
       const entry = data[0] as OkxBookEntry;
-      // console.log(entry);
+      const symbol = entry.instId.replace(/-/g, '').replace(/SWAP$/, '');
+      // if (symbol == '0GUSDT') console.log(entry.asks[0]);
       const dataToSend: MarketExchange = {
         exchange: 'okx',
-        symbol: entry.instId.replace('-', ''),
+        symbol: symbol,
         bids: entry.bids.map((bid) => ({
           price: Number.parseFloat(bid[0]),
           quantity: Number.parseFloat(bid[1]),
@@ -93,10 +94,12 @@ export class OkxClient
           price: Number.parseFloat(ask[0]),
           quantity: Number.parseFloat(ask[1]),
         })),
+        updateTimestamp: Number.parseFloat(entry.ts),
         timestamp: Date.now(),
       };
-
       updatePairExchange(dataToSend);
+      // if (symbol == '0GUSDT')
+      //   console.log(Date.now(), Number.parseFloat(entry.ts));
     } catch (error) {
       console.error('Failed to parse message', (error as Error).message);
     }
@@ -163,7 +166,7 @@ export class OkxClient
     this.subscriptionArgs = okxExchange.cryptoPairs.map((pair) => ({
       channel: 'books5',
       instType: 'SWAP',
-      instId: pair.pair,
+      instId: `${pair.pair}-SWAP`,
     }));
 
     this.subscriptionParams = this.subscriptionArgs;

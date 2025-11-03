@@ -48,7 +48,7 @@ export const SchemaWR6RI9 = z.object({
   quantity: z.number(),
 });
 export type SchemaWR6RI9Type = z.infer<typeof SchemaWR6RI9>;
-export const SchemaLPL4QZ = z.object({
+export const SchemaH4NPS7 = z.object({
   exchangeFrom: z.enum(["binance", "okx"]),
   exchangeTo: z.enum(["binance", "okx"]),
   symbol: z.string(),
@@ -60,10 +60,12 @@ export const SchemaLPL4QZ = z.object({
   get asks(): z.ZodArray<typeof SchemaWR6RI9> {
     return z.array(SchemaWR6RI9) as z.ZodArray<typeof SchemaWR6RI9>;
   },
+  updateTimestamp: z.array(z.number()),
+  timestampComputed: z.array(z.number()),
   timestamp: z.number(),
 });
-export type SchemaLPL4QZType = z.infer<typeof SchemaLPL4QZ>;
-export const MarketOnMarketUpdateOutputSchema = z.array(SchemaLPL4QZ);
+export type SchemaH4NPS7Type = z.infer<typeof SchemaH4NPS7>;
+export const MarketOnMarketUpdateOutputSchema = z.array(SchemaH4NPS7);
 export type MarketOnMarketUpdateOutputSchemaType = z.infer<
   typeof MarketOnMarketUpdateOutputSchema
 >;
