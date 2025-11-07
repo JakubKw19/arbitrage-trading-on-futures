@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from 'src/config/config.service';
 import WebSocket from 'ws';
+import { MarketExchange } from './types/marketExchanges';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export abstract class MarketClient {
@@ -12,7 +13,6 @@ export abstract class MarketClient {
   protected isConnected = false;
   protected shouldReconnect = true;
   protected subscriptionParams: any = [];
-
   constructor(
     protected readonly configService: ConfigService,
     exchangeName: 'binance' | 'okx',

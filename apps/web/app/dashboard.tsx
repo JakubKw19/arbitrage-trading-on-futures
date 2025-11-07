@@ -13,7 +13,8 @@ import {
   SidebarLink,
 } from "components/ui/sidebar";
 import { BsPersonCircle } from "react-icons/bs";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { auth } from "@repo/auth";
 
 export async function SidebarDemo({
   children,
@@ -22,6 +23,7 @@ export async function SidebarDemo({
 }>) {
   const headersList = headers();
   const pathname = (await headersList).get("x-pathname") || "";
+
   const links = [
     {
       label: "Dashboard",
@@ -52,6 +54,22 @@ export async function SidebarDemo({
       ),
     },
   ];
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.toString();
+
+  const session = await auth.api.getSession({
+    headers: {
+      cookie: cookieHeader,
+    },
+  });
+  const res = await fetch("http://localhost:5000/api/auth/session", {
+    headers: {
+      cookie: (await cookies()).toString(),
+    },
+    redirect: "manual", // 👈 don't follow redirects
+  });
+
+  console.log(res.status, res);
   return (
     <div
       className={cn(
@@ -76,9 +94,10 @@ export async function SidebarDemo({
             </div>
           </div>
           <div>
+            {session?.user?.email}
             <SidebarLink
               link={{
-                label: "User",
+                label: JSON.stringify(session?.session),
                 href: "#",
                 icon: <BsPersonCircle size={25} />,
               }}

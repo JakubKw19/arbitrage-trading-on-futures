@@ -29,12 +29,21 @@ export interface DataFlowConfig {
   maxQueueSize: number;
 }
 
+export interface DatabaseConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  name: string;
+}
+
 @Injectable()
 export class ConfigService {
   private readonly config: {
     app: AppConfig;
     exchanges: ExchangeConfig;
     dataFlow: DataFlowConfig;
+    database: DatabaseConfig;
   };
 
   constructor() {
@@ -65,6 +74,13 @@ export class ConfigService {
         batchSize: 10,
         maxQueueSize: 1000,
       },
+      database: {
+        host: process.env.DB_HOST || 'localhost',
+        port: 5432,
+        username: process.env.DB_USERNAME || 'postgres',
+        password: process.env.DB_POSTGRES || 'postgres',
+        name: process.env.DB_NAME || 'arbitrage',
+      },
     };
   }
 
@@ -78,5 +94,9 @@ export class ConfigService {
 
   get dataFlow(): DataFlowConfig {
     return this.config.dataFlow;
+  }
+
+  get database(): DatabaseConfig {
+    return this.config.database;
   }
 }
