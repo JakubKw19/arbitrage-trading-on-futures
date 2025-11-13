@@ -25,14 +25,28 @@ RUN pnpm turbo run build --filter=web... --filter=backend...
 # Stage 5: Backend app
 FROM node:20-alpine AS backend
 WORKDIR /app
+
+# Install PostgreSQL client for pg_isready
+RUN apk add --no-cache postgresql-client
+
 RUN npm install -g pnpm
 # Copy built backend and dependencies
 COPY --from=installer /app/apps/backend ./apps/backend
 COPY --from=installer /app/node_modules ./node_modules
 COPY --from=installer /app/packages ./packages
+
+# Copy startup script
+COPY start.sh .
+RUN chmod +x start.sh
+
 WORKDIR /app/apps/backend
+RUN npx @better-auth/cli generate \
+  --output prisma/schema.prisma \
+  --config ../../packages/auth/src/config.ts
+RUN npx prisma generate
 EXPOSE 5000
-CMD ["node", "dist/main.js"]
+# CMD ["node", "dist/apps/backend/src/main.js"]
+CMD ["../../start.sh"]
 
 # Stage 6: Web app
 FROM node:20-alpine AS web

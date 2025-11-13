@@ -5,32 +5,6 @@ import { getTrpcClient } from "@/lib/trpc";
 import { useEffect, useTransition } from "react";
 import { HiOutlineX } from "react-icons/hi";
 
-const mockData = [
-  {
-    pairCode: "btcusd",
-    pair: "BTC/USD",
-    exchangeFrom: { name: "Binance", bestBid: 30000, bestAsk: 30010 },
-    exchangeTo: { name: "Coinbase", bestBid: 30100, bestAsk: 30120 },
-    arbitragePercentage: 0.33,
-  },
-  {
-    pairCode: "ethusd",
-    pair: "ETH/USD",
-    exchangeFrom: { name: "Kraken", bestBid: 2000, bestAsk: 2010 },
-    exchangeTo: { name: "Bitfinex", bestBid: 2020, bestAsk: 2030 },
-    arbitragePercentage: 0.5,
-  },
-  {
-    pairCode: "ltcusd",
-    pair: "LTC/USD",
-    exchangeFrom: { name: "Binance", bestBid: 150, bestAsk: 151 },
-    exchangeTo: { name: "Coinbase", bestBid: 152, bestAsk: 153 },
-    arbitragePercentage: 0.66,
-  },
-];
-
-type MarketData = (typeof mockData)[0];
-
 import * as React from "react";
 
 import {
@@ -46,9 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Status, StatusIndicator } from "components/kibo-ui/status";
 import {
   AppRouter,
+  MarketOnGroupedArbitrageUpdateOutputSchemaType,
   MarketOnMarketUpdateOutputSchemaType,
 } from "@repo/trpc/server/server";
 import { inferRouterOutputs } from "@trpc/server";
+import { authClient } from "@/lib/auth-client";
 
 const exchanges = [
   "Binance",
@@ -102,6 +78,17 @@ type RouterOutput = inferRouterOutputs<AppRouter>;
 export type SupportedExchangesOutput =
   RouterOutput["MarketRouter"]["getSupportedExchangesData"];
 
+async function getSession() {
+  try {
+    const session = await authClient.getSession(); // fetches /users/me internally
+    console.log("User session:", session);
+    return session;
+  } catch (err) {
+    console.error("Failed to fetch session:", err);
+    return null;
+  }
+}
+
 export default function Page() {
   const trpcClient = getTrpcClient();
   const [status, setStatus] = React.useState<string>("Connected");
@@ -121,9 +108,9 @@ export default function Page() {
     }[]
   >([]);
   // const [commonPairs, setCommonPairs]
-  const [data, setData] = React.useState<MarketData[]>(mockData);
+  // const [data, setData] = React.useState<MarketData[]>(mockData);
   const [arbitrageData, setArbitrageData] =
-    React.useState<MarketOnMarketUpdateOutputSchemaType>([]);
+    React.useState<MarketOnGroupedArbitrageUpdateOutputSchemaType>([]);
   const [updateTime] = React.useState(Date.now());
 
   const latestDataRef = React.useRef(null);
@@ -143,29 +130,28 @@ export default function Page() {
   }, []);
   const [isPending, startTransition] = useTransition();
   useEffect(() => {
-    const subscription = trpcClient.MarketRouter.onMarketUpdate.subscribe(
-      {},
-      {
-        onData(data) {
-          // 2. Wrap your state update in startTransition
-          // This tells React: "This update is not urgent.
-          // Do it when you can, but DON'T block the main thread."
-          startTransition(() => {
-            setArbitrageData(data);
-          });
+    if (filters.length > 0) {
+      filters.forEach((filter) => {
+        const subscription =
+          trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
+            { pairKey: `${filter.exchangeFrom}-${filter.exchangeTo}` },
+            {
+              onData(data) {
+                startTransition(() => {
+                  setArbitrageData(data);
+                });
+              },
+              onError(err) {
+                console.error(err);
+                setStatus("Disconnected");
+              },
+            }
+          );
 
-          // Your onData callback now returns *immediately*,
-          // preventing any WebSocket message backlog.
-        },
-        onError(err) {
-          console.error(err);
-          setStatus("Disconnected");
-        },
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
+        return () => subscription.unsubscribe();
+      });
+    }
+  }, [filters]);
 
   useEffect(() => {
     if (currentExchangeFrom === currentExchangeTo) {
@@ -279,54 +265,39 @@ export default function Page() {
               Add filters
             </Button>
           </div>
-          <div className="flex flex-col gap-4 overflow-x-auto">
-            {filters.map((filter, index) => (
-              <div key={index} className="mt-4">
-                <span className="text-foreground">
-                  {filter.exchangeFrom} - {filter.exchangeTo}
-                </span>
-                {/* <div className="flex gap-2">
-                  {filter.commonPairs.map((pair, index) => (
-                    <div
-                      key={index}
-                      className="mt-2 rounded-md p-2 text-sm font-medium dark:bg-input/30 border flex items-center"
-                    >
-                      <span className="text-foreground">{pair}</span>
-                      <div
-                        className="ml-2 rounded bg-input p-1 hover:text-muted hover:cursor-pointer"
-                        onClick={() => onFilterDelete(filter, pair)}
-                      >
-                        <HiOutlineX />
-                      </div>
-                    </div>
-                  ))}
-                </div> */}
-              </div>
-            ))}
-          </div>
         </CardHeader>
         <CardContent className=" overflow-y-auto">
           {arbitrageData
-            ? arbitrageData.map((item, index) => (
-                <Card key={index} className="mb-4 p-4 border">
-                  <CardTitle className="text-xl font-semibold mb-2">
-                    {item.exchangeFrom} - {item.exchangeTo} {item.symbol}
-                  </CardTitle>
-                  <CardContent>
-                    Long on {item.exchangeFrom} at {item.bids[0].price} and
-                    short on {item.exchangeTo} at {item.asks[0].price} -
-                    Arbitrage: {item.spreadPercent}% TimeDiffrence:
-                    ExchangeFrom:{" "}
-                    {item.timestampComputed[0] - item.updateTimestamp[0]} ms
-                    ExchangeTo:{" "}
-                    {item.timestampComputed[1] - item.updateTimestamp[1]} ms
-                    FinalTimeDiffrence:
-                    {String(
-                      Date.now() - Math.min(...item.timestampComputed)
-                    )}{" "}
-                    ms
-                  </CardContent>
-                </Card>
+            ? arbitrageData.map((filter, index) => (
+                <div key={index}>
+                  <div>{filter.pairKey}</div>
+                  {filter.opportunities
+                    ? filter.opportunities.map((item, index) => (
+                        <Card key={index} className="mb-4 p-4 border">
+                          <CardTitle className="text-xl font-semibold mb-2">
+                            {item.exchangeFrom} - {item.exchangeTo}{" "}
+                            {item.symbol}
+                          </CardTitle>
+                          <CardContent>
+                            Long on {item.exchangeFrom} at {item.bids[0].price}{" "}
+                            and short on {item.exchangeTo} at{" "}
+                            {item.asks[0].price} - Arbitrage:{" "}
+                            {item.spreadPercent}% TimeDiffrence: ExchangeFrom:{" "}
+                            {item.timestampComputed[0] -
+                              item.updateTimestamp[0]}{" "}
+                            ms ExchangeTo:{" "}
+                            {item.timestampComputed[1] -
+                              item.updateTimestamp[1]}{" "}
+                            ms FinalTimeDiffrence:
+                            {String(
+                              Date.now() - Math.min(...item.timestampComputed)
+                            )}{" "}
+                            ms
+                          </CardContent>
+                        </Card>
+                      ))
+                    : null}
+                </div>
               ))
             : null}
         </CardContent>

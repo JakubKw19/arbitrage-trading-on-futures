@@ -6,7 +6,8 @@
     "moduleResolution": "nodenext",
     "target": "ES2023",
     "declaration": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": ["src"]
 }

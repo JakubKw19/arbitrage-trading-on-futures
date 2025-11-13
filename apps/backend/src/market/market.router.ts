@@ -3,6 +3,7 @@ import {
   arbitrageSpreadSubject,
   availableExchangesSubject,
   getAvailableExchanges,
+  groupedArbitrageSubject,
   marketExchangesSubject,
 } from './market.pubsub';
 import { Input, Query, Router, Subscription } from '@nexica/nestjs-trpc';
@@ -49,6 +50,53 @@ export class MarketRouter {
     await this.ensureClientSubscribed(input.exchangeTo, exchanges);
 
     return exchanges;
+  }
+
+  @Subscription({
+    input: z.object({ pairKey: z.string() }),
+    output: marketExchanges.groupedArbitrageSchema,
+  })
+  onGroupedArbitrageUpdate(input: {
+    pairKey: string;
+  }): AsyncIterableIterator<marketExchanges.GroupedArbitrage> {
+    const asyncQueue: ((data: marketExchanges.GroupedArbitrage) => void)[] = [];
+    let latestData: marketExchanges.GroupedArbitrage | null = null;
+
+    const sub = groupedArbitrageSubject.subscribe((dataArray) => {
+      const filteredData = dataArray.filter(
+        (item) => item.pairKey === input.pairKey,
+      );
+
+      latestData = filteredData.length > 0 ? filteredData : null;
+
+      if (latestData && asyncQueue.length > 0) {
+        const resolve = asyncQueue.shift();
+        if (resolve) {
+          resolve(latestData);
+          latestData = null;
+        }
+      }
+    });
+
+    return (async function* () {
+      try {
+        while (true) {
+          const nextData = await new Promise<marketExchanges.GroupedArbitrage>(
+            (resolve) => {
+              if (latestData) {
+                resolve(latestData);
+                latestData = null;
+              } else {
+                asyncQueue.push(resolve);
+              }
+            },
+          );
+          yield nextData;
+        }
+      } finally {
+        sub.unsubscribe();
+      }
+    })();
   }
 
   @Subscription({
@@ -99,6 +147,7 @@ export class MarketRouter {
           const nextData = await new Promise<marketExchanges.ArbitrageSpread[]>(
             (resolve) => {
               if (latestData) {
+                // console.log(latestData);
                 resolve(latestData);
                 latestData = null;
               } else {

@@ -26,22 +26,22 @@ export const MarketGetSupportedExchangesDataOutputSchema =
 export type MarketGetSupportedExchangesDataOutputSchemaType = z.infer<
   typeof MarketGetSupportedExchangesDataOutputSchema
 >;
-export const getSupportedExchangesDataInputSchema = z
-  .object({
-    exchangeFrom: z.string(),
-    exchangeTo: z.string(),
-  })
-  .describe("getSupportedExchangesDataInputSchema");
-export type getSupportedExchangesDataInputSchemaType = z.infer<
-  typeof getSupportedExchangesDataInputSchema
+export const MarketGetCurrentExchangesDataInputSchema = z.object({
+  exchangeFrom: z.string(),
+  exchangeTo: z.string(),
+});
+export type MarketGetCurrentExchangesDataInputSchemaType = z.infer<
+  typeof MarketGetCurrentExchangesDataInputSchema
 >;
 export const MarketGetCurrentExchangesDataOutputSchema = z.array(SchemaMYBPRI);
 export type MarketGetCurrentExchangesDataOutputSchemaType = z.infer<
   typeof MarketGetCurrentExchangesDataOutputSchema
 >;
-export const MarketOnMarketUpdateInputSchema = z.object({});
-export type MarketOnMarketUpdateInputSchemaType = z.infer<
-  typeof MarketOnMarketUpdateInputSchema
+export const MarketOnGroupedArbitrageUpdateInputSchema = z.object({
+  pairKey: z.string(),
+});
+export type MarketOnGroupedArbitrageUpdateInputSchemaType = z.infer<
+  typeof MarketOnGroupedArbitrageUpdateInputSchema
 >;
 export const SchemaWR6RI9 = z.object({
   price: z.number(),
@@ -65,9 +65,75 @@ export const SchemaH4NPS7 = z.object({
   timestamp: z.number(),
 });
 export type SchemaH4NPS7Type = z.infer<typeof SchemaH4NPS7>;
+export const SchemaINAS9J = z.object({
+  pairKey: z.string(),
+  get opportunities(): z.ZodArray<typeof SchemaH4NPS7> {
+    return z.array(SchemaH4NPS7) as z.ZodArray<typeof SchemaH4NPS7>;
+  },
+});
+export type SchemaINAS9JType = z.infer<typeof SchemaINAS9J>;
+export const MarketOnGroupedArbitrageUpdateOutputSchema = z.array(SchemaINAS9J);
+export type MarketOnGroupedArbitrageUpdateOutputSchemaType = z.infer<
+  typeof MarketOnGroupedArbitrageUpdateOutputSchema
+>;
+export const MarketOnMarketUpdateInputSchema = z.object({});
+export type MarketOnMarketUpdateInputSchemaType = z.infer<
+  typeof MarketOnMarketUpdateInputSchema
+>;
 export const MarketOnMarketUpdateOutputSchema = z.array(SchemaH4NPS7);
 export type MarketOnMarketUpdateOutputSchemaType = z.infer<
   typeof MarketOnMarketUpdateOutputSchema
+>;
+export const CredentialsGetBinanceCredentialsInputSchema = z.object({});
+export type CredentialsGetBinanceCredentialsInputSchemaType = z.infer<
+  typeof CredentialsGetBinanceCredentialsInputSchema
+>;
+export const CredentialsGetBinanceCredentialsOutputSchema = z.object({
+  id: z.string(),
+  apiKey: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type CredentialsGetBinanceCredentialsOutputSchemaType = z.infer<
+  typeof CredentialsGetBinanceCredentialsOutputSchema
+>;
+export const CredentialsUpdateBinanceCredentialsInputSchema = z.object({
+  apiKey: z.string(),
+  apiSecret: z.string(),
+});
+export type CredentialsUpdateBinanceCredentialsInputSchemaType = z.infer<
+  typeof CredentialsUpdateBinanceCredentialsInputSchema
+>;
+export const CredentialsDeleteBinanceCredentialsInputSchema = z.object({});
+export type CredentialsDeleteBinanceCredentialsInputSchemaType = z.infer<
+  typeof CredentialsDeleteBinanceCredentialsInputSchema
+>;
+export const CredentialsGetOkxCredentialsInputSchema = z.object({});
+export type CredentialsGetOkxCredentialsInputSchemaType = z.infer<
+  typeof CredentialsGetOkxCredentialsInputSchema
+>;
+export const CredentialsGetOkxCredentialsOutputSchema = z.object({
+  id: z.string(),
+  apiKey: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type CredentialsGetOkxCredentialsOutputSchemaType = z.infer<
+  typeof CredentialsGetOkxCredentialsOutputSchema
+>;
+export const CredentialsUpdateOkxCredentialsInputSchema = z.object({
+  apiKey: z.string(),
+  passphrase: z.string(),
+  apiSecret: z.string(),
+});
+export type CredentialsUpdateOkxCredentialsInputSchemaType = z.infer<
+  typeof CredentialsUpdateOkxCredentialsInputSchema
+>;
+export const CredentialsDeleteOkxCredentialsInputSchema = z.object({});
+export type CredentialsDeleteOkxCredentialsInputSchemaType = z.infer<
+  typeof CredentialsDeleteOkxCredentialsInputSchema
 >;
 
 const MarketRouter = router({
@@ -76,9 +142,14 @@ const MarketRouter = router({
     .output(MarketGetSupportedExchangesDataOutputSchema)
     .query(async () => "" as any),
   getCurrentExchangesData: publicProcedure
-    .input(getSupportedExchangesDataInputSchema)
+    .input(MarketGetCurrentExchangesDataInputSchema)
     .output(MarketGetCurrentExchangesDataOutputSchema)
     .query(async () => "" as any),
+  onGroupedArbitrageUpdate: publicProcedure
+    .input(MarketOnGroupedArbitrageUpdateInputSchema)
+    .subscription(async function* () {
+      yield {} as z.infer<typeof MarketOnGroupedArbitrageUpdateOutputSchema>;
+    }),
   onMarketUpdate: publicProcedure
     .input(MarketOnMarketUpdateInputSchema)
     .subscription(async function* () {
@@ -86,8 +157,32 @@ const MarketRouter = router({
     }),
 });
 
+const CredentialsRouter = router({
+  getBinanceCredentials: publicProcedure
+    .input(CredentialsGetBinanceCredentialsInputSchema)
+    .output(CredentialsGetBinanceCredentialsOutputSchema)
+    .query(async () => "" as any),
+  updateBinanceCredentials: publicProcedure
+    .input(CredentialsUpdateBinanceCredentialsInputSchema)
+    .mutation(async () => "" as any),
+  deleteBinanceCredentials: publicProcedure
+    .input(CredentialsDeleteBinanceCredentialsInputSchema)
+    .mutation(async () => "" as any),
+  getOkxCredentials: publicProcedure
+    .input(CredentialsGetOkxCredentialsInputSchema)
+    .output(CredentialsGetOkxCredentialsOutputSchema)
+    .query(async () => "" as any),
+  updateOkxCredentials: publicProcedure
+    .input(CredentialsUpdateOkxCredentialsInputSchema)
+    .mutation(async () => "" as any),
+  deleteOkxCredentials: publicProcedure
+    .input(CredentialsDeleteOkxCredentialsInputSchema)
+    .mutation(async () => "" as any),
+});
+
 export const appRouter = router({
   MarketRouter,
+  CredentialsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -15,6 +15,7 @@ import {
 import { BsPersonCircle } from "react-icons/bs";
 import { cookies, headers } from "next/headers";
 import { auth } from "@repo/auth";
+// import { auth } from "@repo/auth";
 
 export async function SidebarDemo({
   children,
@@ -54,22 +55,19 @@ export async function SidebarDemo({
       ),
     },
   ];
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.toString();
-
-  const session = await auth.api.getSession({
-    headers: {
-      cookie: cookieHeader,
-    },
-  });
-  const res = await fetch("http://localhost:5000/api/auth/session", {
-    headers: {
-      cookie: (await cookies()).toString(),
-    },
-    redirect: "manual", // 👈 don't follow redirects
-  });
-
-  console.log(res.status, res);
+  async function getServerSession() {
+    const cookieHeader = (await cookies()).toString();
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/get-session`,
+      {
+        headers: { Cookie: cookieHeader },
+        credentials: "include",
+      }
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  }
+  const session = await getServerSession();
   return (
     <div
       className={cn(
@@ -94,10 +92,9 @@ export async function SidebarDemo({
             </div>
           </div>
           <div>
-            {session?.user?.email}
             <SidebarLink
               link={{
-                label: JSON.stringify(session?.session),
+                label: session.user.name,
                 href: "#",
                 icon: <BsPersonCircle size={25} />,
               }}

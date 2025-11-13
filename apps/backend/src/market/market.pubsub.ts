@@ -2,6 +2,7 @@ import { BehaviorSubject, Subject, throttleTime } from 'rxjs';
 import {
   ArbitrageSpread,
   AvailableExchanges,
+  GroupedArbitrage,
   MarketExchange,
 } from './types/marketExchanges';
 import { GetSupportedExchangesDataInput } from './market.router';
@@ -10,6 +11,9 @@ export const marketExchangesSubject = new BehaviorSubject<MarketExchange[]>([]);
 export const availableExchangesSubject =
   new BehaviorSubject<AvailableExchanges>([]);
 export const arbitrageSpreadSubject = new BehaviorSubject<ArbitrageSpread[]>(
+  [],
+);
+export const groupedArbitrageSubject = new BehaviorSubject<GroupedArbitrage>(
   [],
 );
 
@@ -35,6 +39,32 @@ setInterval(() => {
 export function updatePairExchange(pairExchange: MarketExchange) {
   const key = `${pairExchange.exchange}:${pairExchange.symbol}`;
   pairMap.set(key, pairExchange);
+}
+
+function groupArbitrageByExchangePair(spreads: ArbitrageSpread[]) {
+  const pairGroups = new Map<string, ArbitrageSpread[]>();
+
+  for (const spread of spreads) {
+    const pairKey = `${spread.exchangeFrom}-${spread.exchangeTo}`;
+    const pairKeyInversed = `${spread.exchangeTo}-${spread.exchangeFrom}`;
+    if (!pairGroups.has(pairKey)) {
+      pairGroups.set(pairKey, []);
+    }
+    if (!pairGroups.has(pairKeyInversed)) {
+      pairGroups.set(pairKeyInversed, []);
+    }
+    pairGroups.get(pairKey)!.push(spread);
+    pairGroups.get(pairKeyInversed)!.push(spread);
+  }
+
+  const groupedData: GroupedArbitrage = Array.from(pairGroups.entries()).map(
+    ([pairKey, opportunities]) => ({
+      pairKey,
+      opportunities,
+    }),
+  );
+
+  groupedArbitrageSubject.next(groupedData);
 }
 
 export function updateArbitrageSpread() {
@@ -103,6 +133,8 @@ export function updateArbitrageSpread() {
   newSpreads = newSpreads.sort((a, b) => b.spreadPercent - a.spreadPercent);
 
   arbitrageSpreadSubject.next(newSpreads);
+
+  groupArbitrageByExchangePair(newSpreads);
 }
 
 export function addExchange(newExchange: AvailableExchanges[number]) {

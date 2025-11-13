@@ -39,6 +39,14 @@ export const arbitrageSpreadSchema = z.object({
   timestamp: z.number(),
 });
 
+export const exchangePairArbitrageSchema = z.object({
+  pairKey: z.string(),
+  opportunities: z.array(arbitrageSpreadSchema),
+});
+
+export const groupedArbitrageSchema = z.array(exchangePairArbitrageSchema);
+
 export type MarketExchange = z.infer<typeof marketExchangesSchema>;
 export type AvailableExchanges = z.infer<typeof availableExchangesSchema>;
 export type ArbitrageSpread = z.infer<typeof arbitrageSpreadSchema>;
+export type GroupedArbitrage = z.infer<typeof groupedArbitrageSchema>;

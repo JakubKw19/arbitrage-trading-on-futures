@@ -8,7 +8,11 @@ import { ConfigModule } from './config/config.module';
 import { HistoricalDataModule } from './historical/historicalData.module';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { auth } from '@repo/auth';
+import { AuthController } from './auth/auth.controller';
+import { UserController } from './users/user.controller';
 // import { RequestContextFactory } from './context';
+import { CredentialsModule } from './credentials/credentials.module';
+import { AuthContextFactory } from './app.context';
 
 @Module({
   imports: [
@@ -22,10 +26,11 @@ import { auth } from '@repo/auth';
       generateSchemas: true,
       websocket: { enabled: true, port: 5001, path: '/trpc' },
       driver: 'express',
-      // context: RequestContextFactory,
+      context: AuthContextFactory,
     }),
+    CredentialsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, AuthController, UserController],
+  providers: [AppService, AuthContextFactory],
 })
 export class AppModule {}
