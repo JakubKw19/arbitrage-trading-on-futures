@@ -48,12 +48,13 @@ export const SchemaWR6RI9 = z.object({
   quantity: z.number(),
 });
 export type SchemaWR6RI9Type = z.infer<typeof SchemaWR6RI9>;
-export const SchemaH4NPS7 = z.object({
-  exchangeFrom: z.enum(["binance", "okx"]),
-  exchangeTo: z.enum(["binance", "okx"]),
+export const Schema5VEYHT = z.object({
+  exchangeFrom: z.enum(["binance", "okx", "kraken", "mexc"]),
+  exchangeTo: z.enum(["binance", "okx", "kraken", "mexc"]),
   symbol: z.string(),
   spread: z.number(),
   spreadPercent: z.number(),
+  spreadPercentFees: z.number(),
   get bids(): z.ZodArray<typeof SchemaWR6RI9> {
     return z.array(SchemaWR6RI9) as z.ZodArray<typeof SchemaWR6RI9>;
   },
@@ -63,12 +64,16 @@ export const SchemaH4NPS7 = z.object({
   updateTimestamp: z.array(z.number()),
   timestampComputed: z.array(z.number()),
   timestamp: z.number(),
+  fundingRateFrom: z.number().optional(),
+  fundingRateTo: z.number().optional(),
+  takerFeeFrom: z.number().optional(),
+  takerFeeTo: z.number().optional(),
 });
-export type SchemaH4NPS7Type = z.infer<typeof SchemaH4NPS7>;
+export type Schema5VEYHTType = z.infer<typeof Schema5VEYHT>;
 export const SchemaINAS9J = z.object({
   pairKey: z.string(),
-  get opportunities(): z.ZodArray<typeof SchemaH4NPS7> {
-    return z.array(SchemaH4NPS7) as z.ZodArray<typeof SchemaH4NPS7>;
+  get opportunities(): z.ZodArray<typeof Schema5VEYHT> {
+    return z.array(Schema5VEYHT) as z.ZodArray<typeof Schema5VEYHT>;
   },
 });
 export type SchemaINAS9JType = z.infer<typeof SchemaINAS9J>;
@@ -80,7 +85,7 @@ export const MarketOnMarketUpdateInputSchema = z.object({});
 export type MarketOnMarketUpdateInputSchemaType = z.infer<
   typeof MarketOnMarketUpdateInputSchema
 >;
-export const MarketOnMarketUpdateOutputSchema = z.array(SchemaH4NPS7);
+export const MarketOnMarketUpdateOutputSchema = z.array(Schema5VEYHT);
 export type MarketOnMarketUpdateOutputSchemaType = z.infer<
   typeof MarketOnMarketUpdateOutputSchema
 >;
@@ -88,13 +93,15 @@ export const CredentialsGetBinanceCredentialsInputSchema = z.object({});
 export type CredentialsGetBinanceCredentialsInputSchemaType = z.infer<
   typeof CredentialsGetBinanceCredentialsInputSchema
 >;
-export const CredentialsGetBinanceCredentialsOutputSchema = z.object({
-  id: z.string(),
-  apiKey: z.string(),
-  isActive: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
+export const CredentialsGetBinanceCredentialsOutputSchema = z
+  .object({
+    id: z.string(),
+    apiKey: z.string(),
+    isActive: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+  .nullable();
 export type CredentialsGetBinanceCredentialsOutputSchemaType = z.infer<
   typeof CredentialsGetBinanceCredentialsOutputSchema
 >;
@@ -113,13 +120,15 @@ export const CredentialsGetOkxCredentialsInputSchema = z.object({});
 export type CredentialsGetOkxCredentialsInputSchemaType = z.infer<
   typeof CredentialsGetOkxCredentialsInputSchema
 >;
-export const CredentialsGetOkxCredentialsOutputSchema = z.object({
-  id: z.string(),
-  apiKey: z.string(),
-  isActive: z.boolean(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
+export const CredentialsGetOkxCredentialsOutputSchema = z
+  .object({
+    id: z.string(),
+    apiKey: z.string(),
+    isActive: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+  .nullable();
 export type CredentialsGetOkxCredentialsOutputSchemaType = z.infer<
   typeof CredentialsGetOkxCredentialsOutputSchema
 >;

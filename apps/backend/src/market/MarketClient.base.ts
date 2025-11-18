@@ -6,19 +6,29 @@ import { ConfigService } from '../config/config.service';
 @Injectable()
 export abstract class MarketClient {
   protected client: WebSocket | null = null;
-  protected exchangeName: 'binance' | 'okx';
+  protected exchangeName: 'binance' | 'okx' | 'kraken' | 'mexc';
   protected reconnectAttempts = 0;
   protected reconnectTimeout: NodeJS.Timeout | null = null;
   protected pingInterval: NodeJS.Timeout | null = null;
   protected isConnected = false;
   protected shouldReconnect = true;
   protected subscriptionParams: any = [];
+  protected fundingRateCache = new Map<string, number>();
+  protected feesCache = new Map<
+    string,
+    { makerFee: number; takerFee: number }
+  >();
+  protected fundingRateUpdateInterval: NodeJS.Timeout | null = null;
+
   constructor(
     protected readonly configService: ConfigService,
-    exchangeName: 'binance' | 'okx',
+    exchangeName: 'binance' | 'okx' | 'kraken' | 'mexc',
   ) {
     this.exchangeName = exchangeName;
   }
+
+  protected abstract getFundingRates(): Promise<void>;
+  protected abstract getTradingFees(): Promise<void>;
 
   protected connect(wsUrl: string) {
     if (this.client) {
@@ -73,7 +83,12 @@ export abstract class MarketClient {
 
   protected handleClose(code: number, reason: Buffer) {
     this.isConnected = false;
-    console.log('Websocket closed ', code, reason.toString());
+    console.log(
+      'Websocket closed ',
+      code,
+      this.exchangeName,
+      reason.toString(),
+    );
     this.cleanup();
   }
 

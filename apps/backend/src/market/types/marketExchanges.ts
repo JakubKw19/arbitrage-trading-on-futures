@@ -18,25 +18,33 @@ export const orders = z.object({
 });
 
 export const marketExchangesSchema = z.object({
-  exchange: z.enum(['binance', 'okx']),
+  exchange: z.enum(['binance', 'okx', 'kraken', 'mexc']),
   symbol: z.string(),
   bids: z.array(orders),
   asks: z.array(orders),
   updateTimestamp: z.number(),
   timestamp: z.number(),
+  fundingRate: z.number().optional(),
+  takerFee: z.number().optional(),
+  makerFee: z.number().optional(),
 });
 
 export const arbitrageSpreadSchema = z.object({
-  exchangeFrom: z.enum(['binance', 'okx']),
-  exchangeTo: z.enum(['binance', 'okx']),
+  exchangeFrom: z.enum(['binance', 'okx', 'kraken', 'mexc']),
+  exchangeTo: z.enum(['binance', 'okx', 'kraken', 'mexc']),
   symbol: z.string(),
   spread: z.number(),
   spreadPercent: z.number(),
+  spreadPercentFees: z.number(),
   bids: z.array(orders),
   asks: z.array(orders),
   updateTimestamp: z.array(z.number()),
   timestampComputed: z.array(z.number()),
   timestamp: z.number(),
+  fundingRateFrom: z.number().optional(),
+  fundingRateTo: z.number().optional(),
+  takerFeeFrom: z.number().optional(),
+  takerFeeTo: z.number().optional(),
 });
 
 export const exchangePairArbitrageSchema = z.object({

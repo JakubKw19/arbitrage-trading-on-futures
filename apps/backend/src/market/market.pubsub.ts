@@ -1,4 +1,4 @@
-import { BehaviorSubject, Subject, throttleTime } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 import {
   ArbitrageSpread,
   AvailableExchanges,
@@ -18,27 +18,30 @@ export const groupedArbitrageSubject = new BehaviorSubject<GroupedArbitrage>(
 );
 
 const pairMap = new Map<string, MarketExchange>();
+const allArbitrageSpreads = new Map<string, ArbitrageSpread>();
 
 let isProcessingUpdate = false;
 
-setInterval(() => {
-  marketExchangesSubject.next(Array.from(pairMap.values()));
-  if (isProcessingUpdate) {
-    return;
-  }
-  isProcessingUpdate = true;
-  try {
-    updateArbitrageSpread();
-  } catch (err) {
-    console.error('Failed during arbitrage update:', err);
-  } finally {
-    isProcessingUpdate = false;
-  }
-}, 50);
-
+let updateScheduled = false;
 export function updatePairExchange(pairExchange: MarketExchange) {
   const key = `${pairExchange.exchange}:${pairExchange.symbol}`;
   pairMap.set(key, pairExchange);
+  marketExchangesSubject.next(Array.from(pairMap.values()));
+
+  if (updateScheduled) return;
+  updateScheduled = true;
+
+  setTimeout(() => {
+    updateScheduled = false;
+    if (isProcessingUpdate) return;
+
+    isProcessingUpdate = true;
+    try {
+      updateArbitrageSpread();
+    } finally {
+      isProcessingUpdate = false;
+    }
+  }, 20); // small debounce
 }
 
 function groupArbitrageByExchangePair(spreads: ArbitrageSpread[]) {
@@ -46,15 +49,19 @@ function groupArbitrageByExchangePair(spreads: ArbitrageSpread[]) {
 
   for (const spread of spreads) {
     const pairKey = `${spread.exchangeFrom}-${spread.exchangeTo}`;
-    const pairKeyInversed = `${spread.exchangeTo}-${spread.exchangeFrom}`;
+
     if (!pairGroups.has(pairKey)) {
       pairGroups.set(pairKey, []);
     }
-    if (!pairGroups.has(pairKeyInversed)) {
-      pairGroups.set(pairKeyInversed, []);
-    }
+
     pairGroups.get(pairKey)!.push(spread);
-    pairGroups.get(pairKeyInversed)!.push(spread);
+  }
+
+  for (const [pairKey, opportunities] of pairGroups.entries()) {
+    pairGroups.set(
+      pairKey,
+      opportunities.sort((a, b) => b.spreadPercent - a.spreadPercent),
+    );
   }
 
   const groupedData: GroupedArbitrage = Array.from(pairGroups.entries()).map(
@@ -63,7 +70,10 @@ function groupArbitrageByExchangePair(spreads: ArbitrageSpread[]) {
       opportunities,
     }),
   );
-
+  // console.log(
+  //   groupedData[0].opportunities.length,
+  //   groupedData[1].opportunities.length,
+  // );
   groupedArbitrageSubject.next(groupedData);
 }
 
@@ -76,7 +86,6 @@ export function updateArbitrageSpread() {
     grouped.get(p.symbol)!.push(p);
   }
 
-  let newSpreads: ArbitrageSpread[] = [];
   const timestamp = Date.now();
 
   for (const [symbol, exchanges] of grouped.entries()) {
@@ -95,46 +104,77 @@ export function updateArbitrageSpread() {
         if (!bestBidA || !bestAskA || !bestBidB || !bestAskB) continue;
 
         const spreadAB = bestBidA - bestAskB;
+        const spreadPercentAB = (spreadAB / bestAskB) * 100;
+
         const spreadBA = bestBidB - bestAskA;
+        const spreadPercentBA = (spreadBA / bestAskA) * 100;
 
-        if (spreadAB > 0) {
-          newSpreads.push({
-            exchangeFrom: exB.exchange,
-            exchangeTo: exA.exchange,
-            symbol,
-            spread: spreadAB,
-            spreadPercent: (spreadAB / bestAskB) * 100,
-            bids: exB.bids,
-            asks: exA.asks,
-            updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
-            timestampComputed: [exA.timestamp, exB.timestamp],
-            timestamp,
-          });
-        }
+        const feeAskA = bestAskA * (1 + (exA.takerFee ? exA.takerFee : 0));
+        const feeBidA = bestBidA * (1 - (exA.takerFee ? exA.takerFee : 0));
 
-        if (spreadBA > 0) {
-          newSpreads.push({
-            exchangeFrom: exA.exchange,
-            exchangeTo: exB.exchange,
-            symbol,
-            spread: spreadBA,
-            spreadPercent: (spreadBA / bestAskA) * 100,
-            bids: exA.bids,
-            asks: exB.asks,
-            updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
-            timestampComputed: [exA.timestamp, exB.timestamp],
-            timestamp,
-          });
-        }
+        const feeAskB = bestAskB * (1 + (exB.takerFee ? exB.takerFee : 0));
+        const feeBidB = bestBidB * (1 - (exB.takerFee ? exB.takerFee : 0));
+
+        const spreadABWithFees = feeBidA - feeAskB;
+        const spreadPercentABWithFees = (spreadABWithFees / feeAskB) * 100;
+
+        const spreadBAWithFees = feeBidB - feeAskA;
+        const spreadPercentBAWithFees = (spreadBAWithFees / feeAskA) * 100;
+
+        const keyAB = `${exB.exchange}->${exA.exchange}:${symbol}`;
+        const keyBA = `${exA.exchange}->${exB.exchange}:${symbol}`;
+
+        // Direction 1: Buy on B (at ask), Sell on A (at bid)
+        // if (spreadPercentAB > 0) {
+        allArbitrageSpreads.set(keyAB, {
+          exchangeFrom: exB.exchange,
+          exchangeTo: exA.exchange,
+          symbol,
+          spread: spreadAB,
+          spreadPercent: spreadPercentAB,
+          spreadPercentFees: spreadPercentABWithFees,
+          bids: exA.bids,
+          asks: exB.asks,
+          updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
+          timestampComputed: [exA.timestamp, exB.timestamp],
+          timestamp,
+          fundingRateFrom: exB.fundingRate,
+          fundingRateTo: exA.fundingRate,
+          takerFeeFrom: exB.takerFee,
+          takerFeeTo: exA.takerFee,
+        });
+        // } else {
+        // allArbitrageSpreads.delete(keyAB);
+        // }
+
+        // if (spreadPercentBA > 0) {
+        allArbitrageSpreads.set(keyBA, {
+          exchangeFrom: exA.exchange,
+          exchangeTo: exB.exchange,
+          symbol,
+          spread: spreadBA,
+          spreadPercent: spreadPercentBA,
+          spreadPercentFees: spreadPercentBAWithFees,
+          bids: exB.bids,
+          asks: exA.asks,
+          updateTimestamp: [exA.updateTimestamp, exB.updateTimestamp],
+          timestampComputed: [exA.timestamp, exB.timestamp],
+          timestamp,
+          fundingRateFrom: exA.fundingRate,
+          fundingRateTo: exB.fundingRate,
+          takerFeeFrom: exA.takerFee,
+          takerFeeTo: exB.takerFee,
+        });
+        // } else {
+        //   allArbitrageSpreads.delete(keyBA);
+        // }
       }
     }
   }
 
-  newSpreads = newSpreads.sort((a, b) => b.spreadPercent - a.spreadPercent);
-
-  arbitrageSpreadSubject.next(newSpreads);
-
-  groupArbitrageByExchangePair(newSpreads);
+  const currentSpreads = Array.from(allArbitrageSpreads.values());
+  arbitrageSpreadSubject.next(currentSpreads);
+  groupArbitrageByExchangePair(currentSpreads);
 }
 
 export function addExchange(newExchange: AvailableExchanges[number]) {

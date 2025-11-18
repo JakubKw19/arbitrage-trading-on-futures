@@ -10,6 +10,7 @@ import { Input, Query, Router, Subscription } from '@nexica/nestjs-trpc';
 import z from 'zod';
 import { BinanceClient } from './BinanceClient';
 import { OkxClient } from './OkxClient';
+import { MexcClient } from './MexcClient';
 
 const getSupportedExchangesDataInputSchema = z.object({
   exchangeFrom: z.string(),
@@ -24,6 +25,7 @@ export class MarketRouter {
   constructor(
     private readonly binanceClient: BinanceClient,
     private readonly okxClient: OkxClient,
+    private readonly mexcClient: MexcClient,
   ) {}
   @Query({
     input: z.object({}),
@@ -59,39 +61,43 @@ export class MarketRouter {
   onGroupedArbitrageUpdate(input: {
     pairKey: string;
   }): AsyncIterableIterator<marketExchanges.GroupedArbitrage> {
-    const asyncQueue: ((data: marketExchanges.GroupedArbitrage) => void)[] = [];
     let latestData: marketExchanges.GroupedArbitrage | null = null;
-
+    let waitingResolve:
+      | ((data: marketExchanges.GroupedArbitrage) => void)
+      | null = null;
+    // console.log(input.pairKey);
     const sub = groupedArbitrageSubject.subscribe((dataArray) => {
+      const [from, to] = input.pairKey.split('-');
+      const reversed = `${to}-${from}`;
+
       const filteredData = dataArray.filter(
-        (item) => item.pairKey === input.pairKey,
+        (item) => item.pairKey === input.pairKey || item.pairKey === reversed,
       );
+      if (filteredData.length === 0) return;
+      latestData = filteredData;
 
-      latestData = filteredData.length > 0 ? filteredData : null;
-
-      if (latestData && asyncQueue.length > 0) {
-        const resolve = asyncQueue.shift();
-        if (resolve) {
-          resolve(latestData);
-          latestData = null;
-        }
+      if (waitingResolve) {
+        waitingResolve(latestData);
+        waitingResolve = null;
+        latestData = null;
       }
     });
 
     return (async function* () {
       try {
         while (true) {
-          const nextData = await new Promise<marketExchanges.GroupedArbitrage>(
-            (resolve) => {
-              if (latestData) {
-                resolve(latestData);
-                latestData = null;
-              } else {
-                asyncQueue.push(resolve);
-              }
-            },
-          );
-          yield nextData;
+          if (latestData) {
+            yield latestData;
+            latestData = null;
+          } else {
+            const data = await new Promise<marketExchanges.GroupedArbitrage>(
+              (resolve) => {
+                waitingResolve = resolve;
+              },
+            );
+            yield data;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
       } finally {
         sub.unsubscribe();
@@ -106,26 +112,6 @@ export class MarketRouter {
   onMarketUpdate(
     @Input() input: void,
   ): AsyncIterableIterator<marketExchanges.ArbitrageSpread[]> {
-    // const queue: marketExchanges.MarketExchange[][] = [];
-    // const sub = marketExchangesSubject.subscribe((dataArray) => {
-    //   queue.push(dataArray);
-    // });
-
-    // return (async function* () {
-    //   try {
-    //     while (true) {
-    //       if (queue.length > 0) {
-    //         const data = queue.shift()!;
-    //         yield data; // yield full array
-    //       } else {
-    //         await new Promise((resolve) => setTimeout(resolve, 100));
-    //       }
-    //     }
-    //   } finally {
-    //     sub.unsubscribe();
-    //   }
-    // })();
-
     const asyncQueue: ((data: marketExchanges.ArbitrageSpread[]) => void)[] =
       [];
     let latestData: marketExchanges.ArbitrageSpread[] | null = null;
@@ -147,7 +133,6 @@ export class MarketRouter {
           const nextData = await new Promise<marketExchanges.ArbitrageSpread[]>(
             (resolve) => {
               if (latestData) {
-                // console.log(latestData);
                 resolve(latestData);
                 latestData = null;
               } else {
@@ -156,6 +141,7 @@ export class MarketRouter {
             },
           );
           yield nextData;
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
       } finally {
         sub.unsubscribe();
@@ -167,23 +153,22 @@ export class MarketRouter {
     exchange: string,
     exchanges: marketExchanges.AvailableExchanges,
   ) {
-    const client =
-      exchange === 'binance'
-        ? this.binanceClient
-        : exchange === 'okx'
-          ? this.okxClient
-          : null;
+    const exchangeClients: Record<string, any> = {
+      binance: this.binanceClient,
+      okx: this.okxClient,
+      mexc: this.mexcClient,
+    };
+
+    const client = exchangeClients[exchange];
 
     if (!client) {
       throw new Error(`Unsupported exchange: ${exchange}`);
     }
 
-    console.log(exchange);
-
     await client.subscribeToClient(exchanges);
 
     if (!client['isConnected']) {
-      console.log(`[MarketRouter] Reconnecting ${exchange} client...`);
+      console.log(`Reconnecting ${exchange} client...`);
       await client.onModuleInit(); // triggers reconnect logic
     }
   }

@@ -25,6 +25,9 @@ import {
 } from "@repo/trpc/server/server";
 import { inferRouterOutputs } from "@trpc/server";
 import { authClient } from "@/lib/auth-client";
+import { DataTable } from "./table/data-table";
+import { columns, ExchangeData } from "./table/columns";
+import { useMemo } from "react";
 
 const exchanges = [
   "Binance",
@@ -44,7 +47,7 @@ export function SelectScrollable({
   setCurrentValue,
   disabled,
 }: {
-  data: string[];
+  data: { name: string; disabled: boolean }[];
   name: string;
   currentValue?: string;
   setCurrentValue: React.Dispatch<React.SetStateAction<string>>;
@@ -63,8 +66,12 @@ export function SelectScrollable({
         <SelectGroup>
           <SelectLabel>{name}</SelectLabel>
           {data.map((item) => (
-            <SelectItem key={item} value={item}>
-              {item}
+            <SelectItem
+              key={item.name}
+              value={item.name}
+              disabled={item.disabled}
+            >
+              {item.name}
             </SelectItem>
           ))}
         </SelectGroup>
@@ -80,7 +87,7 @@ export type SupportedExchangesOutput =
 
 async function getSession() {
   try {
-    const session = await authClient.getSession(); // fetches /users/me internally
+    const session = await authClient.getSession();
     console.log("User session:", session);
     return session;
   } catch (err) {
@@ -107,10 +114,48 @@ export default function Page() {
       commonPairs: string[];
     }[]
   >([]);
+  const [currentFilter, setCurrentFilter] = React.useState<{
+    id: number | string;
+    exchangeFrom: string;
+    exchangeTo: string;
+    commonPairs: string[];
+  }>();
   // const [commonPairs, setCommonPairs]
   // const [data, setData] = React.useState<MarketData[]>(mockData);
   const [arbitrageData, setArbitrageData] =
     React.useState<MarketOnGroupedArbitrageUpdateOutputSchemaType>([]);
+
+  const subscriptionRef = React.useRef<ReturnType<
+    typeof trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe
+  > | null>(null);
+
+  const pairKey = useMemo(() => {
+    if (!currentFilter) return null;
+    return `${currentFilter.exchangeFrom}-${currentFilter.exchangeTo}`;
+  }, [currentFilter]);
+
+  useEffect(() => {
+    if (!pairKey) return;
+    console.log(pairKey);
+    const sub = trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
+      { pairKey },
+      {
+        onData: (data) => setArbitrageData(data),
+        onError(err) {
+          console.error(err);
+          setStatus("Disconnected");
+        },
+      }
+    );
+
+    subscriptionRef.current = sub;
+
+    return () => {
+      // sub.unsubscribe();
+      // subscriptionRef.current = null;
+    };
+  }, [pairKey]);
+
   const [updateTime] = React.useState(Date.now());
 
   const latestDataRef = React.useRef(null);
@@ -120,7 +165,6 @@ export default function Page() {
         const data =
           await trpcClient.MarketRouter.getSupportedExchangesData.query({});
         setExchangesData(data);
-        // console.log("Supported exchanges data:", data);
       } catch (err) {
         console.error("Error fetching exchanges:", err);
       }
@@ -129,29 +173,6 @@ export default function Page() {
     getPairsForExchanges();
   }, []);
   const [isPending, startTransition] = useTransition();
-  useEffect(() => {
-    if (filters.length > 0) {
-      filters.forEach((filter) => {
-        const subscription =
-          trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
-            { pairKey: `${filter.exchangeFrom}-${filter.exchangeTo}` },
-            {
-              onData(data) {
-                startTransition(() => {
-                  setArbitrageData(data);
-                });
-              },
-              onError(err) {
-                console.error(err);
-                setStatus("Disconnected");
-              },
-            }
-          );
-
-        return () => subscription.unsubscribe();
-      });
-    }
-  }, [filters]);
 
   useEffect(() => {
     if (currentExchangeFrom === currentExchangeTo) {
@@ -182,20 +203,29 @@ export default function Page() {
   }, [currentExchangeFrom, currentExchangeTo, exchangesData, filters]);
 
   const onFilterAdd = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const data = await trpcClient.MarketRouter.getCurrentExchangesData.query({
+      exchangeFrom: currentExchangeFrom,
+      exchangeTo: currentExchangeTo,
+    });
+    if (subscriptionRef.current) subscriptionRef.current.unsubscribe();
+    const id = crypto.randomUUID();
     setFilters((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: id,
         exchangeFrom: currentExchangeFrom,
         exchangeTo: currentExchangeTo,
         commonPairs: pairs,
       },
     ]);
-    const data = await trpcClient.MarketRouter.getCurrentExchangesData.query({
+
+    setCurrentFilter({
+      id: id,
       exchangeFrom: currentExchangeFrom,
       exchangeTo: currentExchangeTo,
+      commonPairs: pairs,
     });
-    console.log(data);
     setPairs([]);
     setCurrentPair("");
     setCurrentExchangeTo("");
@@ -214,6 +244,72 @@ export default function Page() {
     // );
   };
 
+  const onUpdatesClose = async () => {
+    if (!subscriptionRef.current) return;
+    subscriptionRef.current.unsubscribe();
+  };
+
+  const [currentTime, setCurrentTime] = React.useState(Date.now());
+
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setCurrentTime(Date.now());
+  //   }, 1000);
+
+  //   return () => clearInterval(interval);
+  // }, []);
+
+  const tableDataByFilter = useMemo(() => {
+    console.log(arbitrageData);
+    if (!currentFilter || !arbitrageData) return;
+    const filter = currentFilter;
+    const forwardKey = `${filter.exchangeFrom}-${filter.exchangeTo}`;
+    const backwardKey = `${filter.exchangeTo}-${filter.exchangeFrom}`;
+
+    const forwardData = arbitrageData.filter(
+      (item) => item.pairKey === forwardKey
+    );
+    const backwardData = arbitrageData.filter(
+      (item) => item.pairKey === backwardKey
+    );
+    const precison = 4;
+    const forwardTableData =
+      forwardData[0]?.opportunities.slice(0, 20).map((item, index) => ({
+        id: index.toString(),
+        pair: item.symbol,
+        valueLong: item.asks[0].price,
+        valueShort: item.bids[0].price,
+        arbitragePercent: `${item.spreadPercent.toFixed(3)} %`,
+        arbitragePercentFees: `${item.spreadPercentFees.toFixed(3)} %`,
+        timeFrom: `${item.timestampComputed[0] - item.updateTimestamp[0]} ms`,
+        timeTo: `${item.timestampComputed[1] - item.updateTimestamp[1]} ms`,
+        finalTime: `1 ms`,
+        fundingRateFrom: item.fundingRateFrom?.toFixed(precison + 2),
+        fundingRateTo: item.fundingRateTo?.toFixed(precison + 2),
+        takerFeeFrom: item.takerFeeFrom?.toFixed(precison),
+        takerFeeTo: item.takerFeeTo?.toFixed(precison),
+      })) || [];
+
+    const backwardTableData =
+      backwardData[0]?.opportunities.slice(0, 20).map((item, index) => ({
+        id: index.toString(),
+        pair: item.symbol,
+        valueLong: item.asks[0].price,
+        valueShort: item.bids[0].price,
+        arbitragePercent: `${item.spreadPercent.toFixed(3)} %`,
+        arbitragePercentFees: `${item.spreadPercentFees.toFixed(3)} %`,
+        timeFrom: `${item.timestampComputed[0] - item.updateTimestamp[0]} ms`,
+        timeTo: `${item.timestampComputed[1] - item.updateTimestamp[1]} ms`,
+        finalTime: `1 ms`,
+        fundingRateFrom: item.fundingRateFrom?.toFixed(precison + 2),
+        fundingRateTo: item.fundingRateTo?.toFixed(precison + 2),
+        takerFeeFrom: item.takerFeeFrom?.toFixed(precison),
+        takerFeeTo: item.takerFeeTo?.toFixed(precison),
+      })) || [];
+
+    return { forwardKey, backwardKey, forwardTableData, backwardTableData };
+  }, [currentFilter, arbitrageData]);
+
   return (
     <div>
       <Card className=" border-0 overflow-y-auto">
@@ -230,23 +326,36 @@ export default function Page() {
         <CardHeader className="flex flex-col">
           <div className="flex gap-2">
             <SelectScrollable
-              data={exchangesData.map((ex) => ex.name)}
+              data={exchangesData.map((ex) => ({
+                name: ex.name,
+                disabled: false,
+              }))}
               name="Exchange from"
               currentValue={currentExchangeFrom}
               setCurrentValue={setCurrentExchangeFrom}
             />
             <SelectScrollable
               data={exchangesData
-                .filter(
-                  (ex) =>
+                // .filter(
+                //   (ex) =>
+                //     ex.name != currentExchangeFrom &&
+                //     !filters.some(
+                //       (ft) =>
+                //         ft.exchangeFrom === currentExchangeFrom &&
+                //         ft.exchangeTo === ex.name
+                //     )
+                // )
+                .map((ex) => ({
+                  name: ex.name,
+                  disabled: !(
                     ex.name != currentExchangeFrom &&
                     !filters.some(
                       (ft) =>
                         ft.exchangeFrom === currentExchangeFrom &&
                         ft.exchangeTo === ex.name
                     )
-                )
-                .map((ex) => ex.name)}
+                  ),
+                }))}
               name="Exchange to"
               currentValue={currentExchangeTo}
               setCurrentValue={setCurrentExchangeTo}
@@ -260,46 +369,49 @@ export default function Page() {
             /> */}
             <Button
               disabled={!(currentExchangeFrom && currentExchangeTo)}
-              onClick={onFilterAdd}
+              onClick={() => {
+                onUpdatesClose();
+                onFilterAdd();
+              }}
             >
               Add filters
             </Button>
           </div>
         </CardHeader>
         <CardContent className=" overflow-y-auto">
-          {arbitrageData
-            ? arbitrageData.map((filter, index) => (
-                <div key={index}>
-                  <div>{filter.pairKey}</div>
-                  {filter.opportunities
-                    ? filter.opportunities.map((item, index) => (
-                        <Card key={index} className="mb-4 p-4 border">
-                          <CardTitle className="text-xl font-semibold mb-2">
-                            {item.exchangeFrom} - {item.exchangeTo}{" "}
-                            {item.symbol}
-                          </CardTitle>
-                          <CardContent>
-                            Long on {item.exchangeFrom} at {item.bids[0].price}{" "}
-                            and short on {item.exchangeTo} at{" "}
-                            {item.asks[0].price} - Arbitrage:{" "}
-                            {item.spreadPercent}% TimeDiffrence: ExchangeFrom:{" "}
-                            {item.timestampComputed[0] -
-                              item.updateTimestamp[0]}{" "}
-                            ms ExchangeTo:{" "}
-                            {item.timestampComputed[1] -
-                              item.updateTimestamp[1]}{" "}
-                            ms FinalTimeDiffrence:
-                            {String(
-                              Date.now() - Math.min(...item.timestampComputed)
-                            )}{" "}
-                            ms
-                          </CardContent>
-                        </Card>
-                      ))
-                    : null}
+          {tableDataByFilter && (
+            <div className="w-full justify-between border p-4">
+              <div className="w-full flex justify-end">
+                <Button
+                  onClick={() => {
+                    (onUpdatesClose(), setArbitrageData([]));
+                  }}
+                >
+                  X
+                </Button>
+              </div>
+              <div className="flex flex-col">
+                <div className="m-2 rounded-2xl">
+                  <div className=" text-2xl m-2">
+                    {tableDataByFilter.forwardKey}
+                  </div>
+                  <DataTable
+                    columns={columns}
+                    data={tableDataByFilter.forwardTableData}
+                  />
                 </div>
-              ))
-            : null}
+                <div className="m-2 rounded-2xl">
+                  <div className=" text-2xl m-2">
+                    {tableDataByFilter.backwardKey}
+                  </div>
+                  <DataTable
+                    columns={columns}
+                    data={tableDataByFilter.backwardTableData}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

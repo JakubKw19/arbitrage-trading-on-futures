@@ -17,6 +17,8 @@ import {
 import type {
   BinanceExchangeInfo,
   BinanceDepthUpdate,
+  BinanceTradeFee,
+  BinanceFundingRate,
 } from './types/api-responses';
 import { ConfigService } from '../config/config.service';
 import { MarketClient } from './MarketClient.base';
@@ -29,6 +31,52 @@ export class BinanceClient
 {
   constructor(configService: ConfigService) {
     super(configService, 'binance');
+  }
+
+  protected async getTradingFees(): Promise<void> {}
+
+  protected async setTradingFees(
+    symbol: string,
+    takerFeeRate: string,
+    makerFeeRate: string,
+  ): Promise<void> {
+    this.feesCache.set(symbol, {
+      makerFee: Number.parseFloat(makerFeeRate),
+      takerFee: Number.parseFloat(takerFeeRate),
+    });
+  }
+
+  protected async getFundingRates(): Promise<void> {
+    try {
+      const symbols = Array.from(this.fundingRateCache.keys());
+      if (symbols.length === 0) return;
+
+      const fetchPromises = symbols.map(async (symbol) => {
+        try {
+          const res = await fetch(
+            `${this.configService.exchanges.binance.restUrl}/fapi/v1/fundingRate?symbol=${symbol}&limit=1`,
+          );
+
+          if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+          const data: BinanceFundingRate[] = await res.json();
+          console.log(data);
+          if (data[0] && data[0].fundingRate) {
+            console.log(data[0].fundingRate);
+            this.fundingRateCache.set(
+              symbol,
+              Number.parseFloat(data[0].fundingRate),
+            );
+          }
+        } catch (error) {
+          console.error(`Failed to fetch funding rate for ${symbol}:`, error);
+        }
+      });
+
+      await Promise.all(fetchPromises);
+    } catch (error) {
+      console.error('Failed to fetch funding rates', (error as Error).message);
+    }
   }
 
   async getAllTrades() {
@@ -48,15 +96,38 @@ export class BinanceClient
         .map((s) => s.symbol.toLowerCase());
       const params = symbols.map((symbol) => `${symbol}@depth5`);
 
+      symbols.forEach((symbol) => {
+        const uppercaseSymbol = symbol.toUpperCase();
+        this.fundingRateCache.set(`${uppercaseSymbol}`, 0);
+        console.log(uppercaseSymbol);
+        this.setTradingFees(
+          uppercaseSymbol,
+          (0.0005).toString(),
+          (0.0002).toString(),
+        );
+      });
+
       addExchange({
         name: 'binance',
         cryptoPairs: data.symbols.map((s) => {
+          // console.log(s.symbol.toLowerCase(), s.baseAsset + '-' + s.quoteAsset);
           return {
             pair: s.baseAsset + '-' + s.quoteAsset,
             pairCode: s.symbol.toLowerCase(),
           };
         }),
       });
+
+      // await this.getTradingFees();
+      await this.getFundingRates();
+
+      // if (this.fundingRateUpdateInterval) {
+      //   clearInterval(this.fundingRateUpdateInterval);
+      // }
+      // this.fundingRateUpdateInterval = setInterval(
+      //   () => this.getFundingRates(),
+      //   10 * 60000,
+      // );
 
       console.log(`Loaded ${symbols.length} trading pairs`, {
         exchange: 'binance',
@@ -78,6 +149,8 @@ export class BinanceClient
         return;
       }
 
+      const fundingRate = this.fundingRateCache.get(json.s);
+      const fees = this.feesCache.get(json.s);
       const dataToSend: MarketExchange = {
         exchange: 'binance',
         symbol: json.s,
@@ -91,6 +164,9 @@ export class BinanceClient
         })),
         updateTimestamp: json.E,
         timestamp: Date.now(),
+        fundingRate,
+        makerFee: fees?.makerFee,
+        takerFee: fees?.takerFee,
       };
       updatePairExchange(dataToSend);
     } catch (error) {
@@ -106,7 +182,7 @@ export class BinanceClient
       return;
     }
 
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 100;
     const batches: string[][] = [];
 
     for (let i = 0; i < params.length; i += BATCH_SIZE) {

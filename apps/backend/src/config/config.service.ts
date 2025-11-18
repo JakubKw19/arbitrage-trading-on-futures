@@ -21,12 +21,28 @@ export interface ExchangeConfig {
     maxReconnectAttempts: number;
     pingInterval: number;
   };
+  kraken: {
+    wsUrl: string;
+    restUrl: string;
+    reconnectDelay: number;
+    maxReconnectAttempts: number;
+    pingInterval: number;
+  };
+  mexc: {
+    wsUrl: string;
+    restUrl: string;
+    reconnectDelay: number;
+    maxReconnectAttempts: number;
+    pingInterval: number;
+  };
 }
 
 export interface DataFlowConfig {
   throttleInterval: number;
   batchSize: number;
   maxQueueSize: number;
+  staleDataThreshold: number;
+  messageThrottleMs: number;
 }
 
 export interface DatabaseConfig {
@@ -68,11 +84,27 @@ export class ConfigService {
           maxReconnectAttempts: 10,
           pingInterval: 30000,
         },
+        kraken: {
+          wsUrl: 'wss://ws.kraken.com/v2',
+          restUrl: 'https://www.kraken.com',
+          reconnectDelay: 5000,
+          maxReconnectAttempts: 10,
+          pingInterval: 30000,
+        },
+        mexc: {
+          wsUrl: 'wss://contract.mexc.com/edge',
+          restUrl: 'https://contract.mexc.com',
+          reconnectDelay: 5000,
+          maxReconnectAttempts: 10,
+          pingInterval: 20000,
+        },
       },
       dataFlow: {
-        throttleInterval: 100,
+        throttleInterval: 200,
         batchSize: 10,
         maxQueueSize: 1000,
+        staleDataThreshold: 60000,
+        messageThrottleMs: 10,
       },
       database: {
         host: process.env.DB_HOST || 'localhost',

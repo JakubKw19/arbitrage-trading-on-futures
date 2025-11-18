@@ -15,7 +15,9 @@ import {
 } from './market.pubsub';
 import type {
   OkxBookEntry,
+  OkxFundingRate,
   OkxInstrumentsResponse,
+  OkxTradeFee,
   OkxWebSocketMessage,
 } from './types/api-responses';
 import { ConfigService } from '../config/config.service';
@@ -36,6 +38,71 @@ export class OkxClient
     super(configService, 'okx');
   }
 
+  protected async getTradingFees(): Promise<void> {}
+
+  protected async setTradingFees(
+    symbol: string,
+    takerFeeRate: string,
+    makerFeeRate: string,
+  ): Promise<void> {
+    this.feesCache.set(symbol, {
+      makerFee: Number.parseFloat(makerFeeRate),
+      takerFee: Number.parseFloat(takerFeeRate),
+    });
+  }
+
+  protected async getFundingRates(): Promise<void> {
+    try {
+      const instIds = Array.from(this.fundingRateCache.keys());
+      if (instIds.length === 0) return;
+
+      const fetchPromises = instIds.map(async (instId) => {
+        try {
+          const res = await fetch(
+            `${this.configService.exchanges.okx.restUrl}/api/v5/public/funding-rate?instId=${instId}`,
+          );
+          if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+          const json = await res.json();
+          if (json.data?.[0]?.fundingRate) {
+            this.fundingRateCache.set(
+              instId,
+              Number.parseFloat(json.data[0].fundingRate),
+            );
+          }
+        } catch (error) {
+          console.error(`Failed to fetch funding rate for ${instId}:`, error);
+        }
+      });
+
+      await Promise.all(fetchPromises);
+    } catch (error) {
+      console.error('Failed to fetch funding rates', (error as Error).message);
+    }
+  }
+
+  // protected async getTradingFees(): Promise<void> {
+  //   try {
+  //     const res = await fetch(
+  //       `${this.configService.exchanges.okx.restUrl}/api/v5/account/trade-fee?instType=SWAP`,
+  //     );
+  //     if (res.ok) {
+  //       const json = await res.json();
+  //       if (json.data) {
+  //         const fees: OkxTradeFee[] = json.data;
+  //         fees.forEach((fee) => {
+  //           this.feesCache.set(fee.instId, {
+  //             makerFee: Number.parseFloat(fee.makerU || fee.makerUSDC || '0'),
+  //             takerFee: Number.parseFloat(fee.takerU || fee.takerUSDC || '0'),
+  //           });
+  //         });
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to fetch trading fees', (error as Error).message);
+  //   }
+  // }
+
   async getAllTrades() {
     try {
       const res = await fetch(
@@ -50,6 +117,14 @@ export class OkxClient
         .filter((inst) => inst.state === 'live')
         .map((inst) => inst.instFamily);
 
+      data.data.forEach((inst) => {
+        (this.fundingRateCache.set(`${inst.instId}`, 0),
+          this.setTradingFees(
+            inst.instId,
+            (0.0005).toString(),
+            (0.0002).toString(),
+          ));
+      });
       addExchange({
         name: 'okx',
         cryptoPairs: instruments.map((s) => {
@@ -60,7 +135,19 @@ export class OkxClient
           };
         }),
       });
-      console.log(`[okx] Loaded ${instruments.length} trading pairs`);
+
+      // await this.getTradingFees();
+      await this.getFundingRates();
+
+      // if (this.fundingRateUpdateInterval) {
+      //   clearInterval(this.fundingRateUpdateInterval);
+      // }
+      // this.fundingRateUpdateInterval = setInterval(
+      //   () => this.getFundingRates(),
+      //   10 * 60000,
+      // );
+
+      console.log(`Loaded ${instruments.length} trading pairs`);
       return instruments;
     } catch (error) {
       console.error('Failed to fetch instruments', (error as Error).message);
@@ -82,7 +169,9 @@ export class OkxClient
 
       const entry = data[0] as OkxBookEntry;
       const symbol = entry.instId.replace(/-/g, '').replace(/SWAP$/, '');
-      // if (symbol == '0GUSDT') console.log(entry.asks[0]);
+
+      const fundingRate = this.fundingRateCache.get(entry.instId);
+      const fees = this.feesCache.get(entry.instId);
       const dataToSend: MarketExchange = {
         exchange: 'okx',
         symbol: symbol,
@@ -96,12 +185,25 @@ export class OkxClient
         })),
         updateTimestamp: Number.parseFloat(entry.ts),
         timestamp: Date.now(),
+        fundingRate,
+        makerFee: fees?.makerFee,
+        takerFee: fees?.takerFee,
       };
       updatePairExchange(dataToSend);
-      // if (symbol == '0GUSDT')
-      //   console.log(Date.now(), Number.parseFloat(entry.ts));
     } catch (error) {
       console.error('Failed to parse message', (error as Error).message);
+    }
+  }
+
+  protected handleOpen() {
+    this.isConnected = true;
+    this.reconnectAttempts = 0;
+    console.log('Websocket connected', { exchange: 'okx' });
+    this.startPingInterval();
+
+    // Automatically resubscribe to stored subscription parameters
+    if (this.subscriptionParams && this.subscriptionParams.length > 0) {
+      this.subscribe(this.subscriptionParams);
     }
   }
 

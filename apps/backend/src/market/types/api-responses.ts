@@ -46,3 +46,68 @@ export interface OkxWebSocketMessage {
   };
   data?: OkxBookEntry[];
 }
+
+export interface MexcSymbol {
+  symbol: string;
+  displayName: string;
+  state: number;
+  baseCoin: string;
+  quoteCoin: string;
+  takerFeeRate: string;
+  makerFeeRate: string;
+}
+
+export interface MexcExchangeInfo {
+  success: boolean;
+  code: number;
+  data: MexcSymbol[];
+}
+
+export interface MexcDepthUpdate {
+  channel: string;
+  symbol: string;
+  ts: number;
+  data: {
+    asks: [number, number][]; // [price, quantity]
+    bids: [number, number][]; // [price, quantity]
+  };
+}
+
+export interface BinanceFundingRate {
+  symbol: string;
+  fundingRate: string;
+  fundingTime: number;
+}
+
+export interface BinanceTradeFee {
+  symbol: string;
+  makerCommission: string;
+  takerCommission: string;
+}
+
+export interface OkxFundingRate {
+  instId: string;
+  fundingRate: string;
+  fundingTime: string;
+  nextFundingTime: string;
+}
+
+export interface OkxTradeFee {
+  instId: string;
+  makerU: string;
+  takerU: string;
+  makerUSDC: string;
+  takerUSDC: string;
+}
+
+export interface MexcFundingRate {
+  symbol: string;
+  fundingRate: number;
+  collectTime: number;
+}
+
+export interface MexcTradeFee {
+  symbol: string;
+  makerFeeRate: string;
+  takerFeeRate: string;
+}
