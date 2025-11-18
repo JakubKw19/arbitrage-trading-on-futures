@@ -21,7 +21,7 @@ model User {
   accounts      Account[]
   binanceCredentials BinanceCredentials?
   okxCredentials     OkxCredentials?
-
+  kuCoinCredentials  kuCoinCredentials?
   @@map("user")
 }
 
@@ -94,4 +94,17 @@ model OkxCredentials {
   updatedAt DateTime @updatedAt
 
   @@map("okx_credentials")
+}
+
+model kuCoinCredentials {
+  id        String   @id @default(cuid())
+  apiKey    String
+  apiSecret String
+  passphrase String
+  isActive  Boolean  @default(false)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("kucoin_credentials")
 }

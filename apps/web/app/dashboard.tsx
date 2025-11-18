@@ -57,13 +57,13 @@ export async function SidebarDemo({
   ];
   async function getServerSession() {
     const cookieHeader = (await cookies()).toString();
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/get-session`,
-      {
-        headers: { Cookie: cookieHeader },
-        credentials: "include",
-      }
-    );
+    const baseUrl =
+      process.env.BETTER_AUTH_INTERNAL_URL ??
+      process.env.NEXT_PUBLIC_BETTER_AUTH_URL;
+    const res = await fetch(`${baseUrl}/api/auth/get-session`, {
+      headers: { Cookie: cookieHeader },
+      credentials: "include",
+    });
     if (!res.ok) return null;
     return await res.json();
   }

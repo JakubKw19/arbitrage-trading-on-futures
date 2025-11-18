@@ -69,4 +69,4 @@ COPY --from=installer /app/packages ./packages
 
 WORKDIR /app/apps/web
 EXPOSE 3000
-CMD ["pnpm", "start"]
+CMD ["pnpm", "run", "dev"]

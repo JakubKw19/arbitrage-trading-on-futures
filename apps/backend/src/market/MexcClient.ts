@@ -28,7 +28,9 @@ export class MexcClient
         `${this.configService.exchanges.mexc.restUrl}/api/v1/contract/funding_rate`,
       );
       if (!res.ok) {
-        throw new Error(`Failed to fetch funding rates: ${res.statusText}`);
+        throw new Error(
+          `Failed to fetch funding rates mexc: ${res.statusText}`,
+        );
       }
       const data: any = await res.json();
       if (data.data && Array.isArray(data.data)) {

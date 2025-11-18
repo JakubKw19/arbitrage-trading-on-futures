@@ -60,22 +60,26 @@ export class BinanceClient
           if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 
           const data: BinanceFundingRate[] = await res.json();
-          console.log(data);
           if (data[0] && data[0].fundingRate) {
-            console.log(data[0].fundingRate);
             this.fundingRateCache.set(
               symbol,
               Number.parseFloat(data[0].fundingRate),
             );
           }
         } catch (error) {
-          console.error(`Failed to fetch funding rate for ${symbol}:`, error);
+          console.error(
+            `Failed to fetch funding rate for binance ${symbol}:`,
+            error,
+          );
         }
       });
 
       await Promise.all(fetchPromises);
     } catch (error) {
-      console.error('Failed to fetch funding rates', (error as Error).message);
+      console.error(
+        'Failed to fetch funding rates binance',
+        (error as Error).message,
+      );
     }
   }
 
@@ -99,7 +103,6 @@ export class BinanceClient
       symbols.forEach((symbol) => {
         const uppercaseSymbol = symbol.toUpperCase();
         this.fundingRateCache.set(`${uppercaseSymbol}`, 0);
-        console.log(uppercaseSymbol);
         this.setTradingFees(
           uppercaseSymbol,
           (0.0005).toString(),

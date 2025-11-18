@@ -20,7 +20,7 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirectURI: "http://localhost:5000/api/auth/callback/google",
+      redirectURI: process.env.GOOGLE_REDIRECT_URI!,
     },
   },
   jwt: {
@@ -36,5 +36,8 @@ export const auth = betterAuth({
       // path: "/" // default
     },
   },
-  trustedOrigins: ["http://localhost:3000", "http://localhost:5000"],
+  trustedOrigins: [
+    process.env.PUBLIC_WEB_URL ?? "http://localhost:3000",
+    process.env.PUBLIC_BACKEND_URL ?? "http://localhost:5000",
+  ],
 });

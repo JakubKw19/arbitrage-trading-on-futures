@@ -71,13 +71,19 @@ export class OkxClient
             );
           }
         } catch (error) {
-          console.error(`Failed to fetch funding rate for ${instId}:`, error);
+          console.error(
+            `Failed to fetch funding rate for okx ${instId}:`,
+            error,
+          );
         }
       });
 
       await Promise.all(fetchPromises);
     } catch (error) {
-      console.error('Failed to fetch funding rates', (error as Error).message);
+      console.error(
+        'Failed to fetch funding rates okx',
+        (error as Error).message,
+      );
     }
   }
 
