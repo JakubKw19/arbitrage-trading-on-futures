@@ -26,22 +26,15 @@ export const MarketGetSupportedExchangesDataOutputSchema =
 export type MarketGetSupportedExchangesDataOutputSchemaType = z.infer<
   typeof MarketGetSupportedExchangesDataOutputSchema
 >;
-export const MarketGetCurrentExchangesDataInputSchema = z.object({
-  exchangeFrom: z.string(),
-  exchangeTo: z.string(),
-});
-export type MarketGetCurrentExchangesDataInputSchemaType = z.infer<
-  typeof MarketGetCurrentExchangesDataInputSchema
->;
-export const MarketGetCurrentExchangesDataOutputSchema = z.array(SchemaMYBPRI);
-export type MarketGetCurrentExchangesDataOutputSchemaType = z.infer<
-  typeof MarketGetCurrentExchangesDataOutputSchema
->;
-export const MarketOnGroupedArbitrageUpdateInputSchema = z.object({
+export const MarketAddMarketPairToTrackingInputSchema = z.object({
   pairKey: z.string(),
+  symbol: z.string(),
+  initialArbitrage: z.number(),
+  entryPriceA: z.number(),
+  entryPriceB: z.number(),
 });
-export type MarketOnGroupedArbitrageUpdateInputSchemaType = z.infer<
-  typeof MarketOnGroupedArbitrageUpdateInputSchema
+export type MarketAddMarketPairToTrackingInputSchemaType = z.infer<
+  typeof MarketAddMarketPairToTrackingInputSchema
 >;
 export const SchemaWR6RI9 = z.object({
   price: z.number(),
@@ -77,6 +70,51 @@ export const SchemaINAS9J = z.object({
   },
 });
 export type SchemaINAS9JType = z.infer<typeof SchemaINAS9J>;
+export const MarketAddMarketPairToTrackingOutputSchema = z.array(SchemaINAS9J);
+export type MarketAddMarketPairToTrackingOutputSchemaType = z.infer<
+  typeof MarketAddMarketPairToTrackingOutputSchema
+>;
+export const MarketGetUserTrackedMarketPairsInputSchema = z.object({});
+export type MarketGetUserTrackedMarketPairsInputSchemaType = z.infer<
+  typeof MarketGetUserTrackedMarketPairsInputSchema
+>;
+export const SchemaZFIKUR = z.object({
+  pairKey: z.string(),
+  symbol: z.string(),
+  isCompleted: z.boolean(),
+  initialArbitrage: z.number(),
+  finalArbitrage: z.number().nullable().optional(),
+  entryPriceA: z.number(),
+  entryPriceB: z.number(),
+  finalPriceA: z.number().nullable().optional(),
+  finalPriceB: z.number().nullable().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  finalizedAt: z.date().nullable().optional(),
+});
+export type SchemaZFIKURType = z.infer<typeof SchemaZFIKUR>;
+export const MarketGetUserTrackedMarketPairsOutputSchema =
+  z.array(SchemaZFIKUR);
+export type MarketGetUserTrackedMarketPairsOutputSchemaType = z.infer<
+  typeof MarketGetUserTrackedMarketPairsOutputSchema
+>;
+export const MarketGetCurrentExchangesDataInputSchema = z.object({
+  exchangeFrom: z.string(),
+  exchangeTo: z.string(),
+});
+export type MarketGetCurrentExchangesDataInputSchemaType = z.infer<
+  typeof MarketGetCurrentExchangesDataInputSchema
+>;
+export const MarketGetCurrentExchangesDataOutputSchema = z.array(SchemaMYBPRI);
+export type MarketGetCurrentExchangesDataOutputSchemaType = z.infer<
+  typeof MarketGetCurrentExchangesDataOutputSchema
+>;
+export const MarketOnGroupedArbitrageUpdateInputSchema = z.object({
+  pairKey: z.string(),
+});
+export type MarketOnGroupedArbitrageUpdateInputSchemaType = z.infer<
+  typeof MarketOnGroupedArbitrageUpdateInputSchema
+>;
 export const MarketOnGroupedArbitrageUpdateOutputSchema = z.array(SchemaINAS9J);
 export type MarketOnGroupedArbitrageUpdateOutputSchemaType = z.infer<
   typeof MarketOnGroupedArbitrageUpdateOutputSchema
@@ -149,6 +187,14 @@ const MarketRouter = router({
   getSupportedExchangesData: publicProcedure
     .input(MarketGetSupportedExchangesDataInputSchema)
     .output(MarketGetSupportedExchangesDataOutputSchema)
+    .query(async () => "" as any),
+  addMarketPairToTracking: publicProcedure
+    .input(MarketAddMarketPairToTrackingInputSchema)
+    .output(MarketAddMarketPairToTrackingOutputSchema)
+    .mutation(async () => "" as any),
+  getUserTrackedMarketPairs: publicProcedure
+    .input(MarketGetUserTrackedMarketPairsInputSchema)
+    .output(MarketGetUserTrackedMarketPairsOutputSchema)
     .query(async () => "" as any),
   getCurrentExchangesData: publicProcedure
     .input(MarketGetCurrentExchangesDataInputSchema)

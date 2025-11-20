@@ -1,13 +1,18 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { getTrpcClient } from "@/lib/trpc";
 import { ColumnDef } from "@tanstack/react-table";
+import { trpcClient } from "../page";
 
 export type ExchangeData = {
   id: string;
   pair: string;
+  pairKey: string;
   valueLong: number;
   valueShort: number;
   arbitragePercent: string;
+  arbitrageNumber: number;
   timeFrom: string;
   timeTo: string;
   finalTime: string;
@@ -16,7 +21,50 @@ export type ExchangeData = {
   takerFeeFrom?: string;
   takerFeeTo?: string;
 };
+
+const addPairToTracking = async (
+  pairKey: string,
+  symbol: string,
+  initialArbitrage: number,
+  entryPriceA: number,
+  entryPriceB: number
+) => {
+  console.log(
+    `Added pair: ${pairKey}, ${symbol}, ${initialArbitrage} ${entryPriceA} ${entryPriceB}`
+  );
+  await trpcClient.MarketRouter.addMarketPairToTracking.mutate({
+    pairKey,
+    symbol,
+    initialArbitrage,
+    entryPriceA,
+    entryPriceB,
+  });
+};
+
 export const columns: ColumnDef<ExchangeData>[] = [
+  {
+    accessorKey: "id",
+    header: "",
+    cell: ({ row }) => (
+      <div className="w-[40px] text-right">
+        <Button
+          variant="outline"
+          className=" text-accent"
+          onClick={() =>
+            addPairToTracking(
+              row.original.pairKey,
+              row.original.pair,
+              row.original.arbitrageNumber,
+              row.original.valueLong,
+              row.original.valueShort
+            )
+          }
+        >
+          +
+        </Button>
+      </div>
+    ),
+  },
   {
     accessorKey: "pair",
     header: "Symbols",

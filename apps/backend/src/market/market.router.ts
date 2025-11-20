@@ -6,11 +6,21 @@ import {
   groupedArbitrageSubject,
   marketExchangesSubject,
 } from './market.pubsub';
-import { Input, Query, Router, Subscription } from '@nexica/nestjs-trpc';
+import {
+  Context,
+  Input,
+  Mutation,
+  Query,
+  Router,
+  Subscription,
+} from '@nexica/nestjs-trpc';
 import z from 'zod';
 import { BinanceClient } from './BinanceClient';
 import { OkxClient } from './OkxClient';
 import { MexcClient } from './MexcClient';
+import type { AuthContext } from '../app.context';
+import { MarketService } from './market.service';
+import type { AddMarketPairToTrackingInput } from './types/marketExchanges';
 
 const getSupportedExchangesDataInputSchema = z.object({
   exchangeFrom: z.string(),
@@ -20,9 +30,11 @@ const getSupportedExchangesDataInputSchema = z.object({
 export type GetSupportedExchangesDataInput = z.infer<
   typeof getSupportedExchangesDataInputSchema
 >;
+
 @Router()
 export class MarketRouter {
   constructor(
+    private readonly marketService: MarketService,
     private readonly binanceClient: BinanceClient,
     private readonly okxClient: OkxClient,
     private readonly mexcClient: MexcClient,
@@ -35,6 +47,38 @@ export class MarketRouter {
     @Input() input: void,
   ): marketExchanges.AvailableExchanges {
     return availableExchangesSubject.getValue();
+  }
+
+  @Mutation({
+    input: marketExchanges.AddMarketPairToTrackingInputSchema,
+    output: z.void(),
+  })
+  async addMarketPairToTracking(
+    @Input() input: AddMarketPairToTrackingInput,
+    @Context() ctx: AuthContext,
+  ): Promise<void> {
+    if (!ctx.isAuthenticated || !ctx.user) {
+      throw new Error('Not authenticated');
+    }
+    console.log(input);
+    return this.marketService.addMarketPairToTracking(ctx.user.id, input);
+  }
+
+  @Query({
+    input: z.object({}),
+    output: marketExchanges.userTrackedMarketPairsSchema,
+  })
+  async getUserTrackedMarketPairs(
+    @Context() ctx: AuthContext,
+  ): Promise<marketExchanges.UserTrackedMarketPairs> {
+    if (!ctx.isAuthenticated || !ctx.user) {
+      throw new Error('Not authenticated');
+    }
+    const result = await this.marketService.getUserTrackedMarketPairs(
+      ctx.user.id,
+    );
+    console.log('DEBUG result:', result);
+    return result;
   }
 
   @Query({

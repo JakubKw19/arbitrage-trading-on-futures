@@ -22,6 +22,8 @@ model User {
   binanceCredentials BinanceCredentials?
   okxCredentials     OkxCredentials?
   kuCoinCredentials  kuCoinCredentials?
+  trades        Trade[]
+
   @@map("user")
 }
 
@@ -67,6 +69,26 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@map("verification")
+}
+
+model Trade {
+  id            String   @id @default(cuid())
+  isCompleted   Boolean  @default(false)
+  pairKey       String
+  symbol        String
+  initialArbitrage  Float
+  finalArbitrage    Float?
+  entryPriceA   Float
+  entryPriceB   Float
+  finalPriceA   Float?
+  finalPriceB   Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  finalizedAt   DateTime?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("trade")
 }
 
 model BinanceCredentials {

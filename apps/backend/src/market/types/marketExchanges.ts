@@ -47,14 +47,44 @@ export const arbitrageSpreadSchema = z.object({
   takerFeeTo: z.number().optional(),
 });
 
+export const UserTrackedMarketPair = z.object({
+  pairKey: z.string(),
+  symbol: z.string(),
+  isCompleted: z.boolean(),
+  initialArbitrage: z.number(),
+  finalArbitrage: z.number().nullable().optional(),
+  entryPriceA: z.number(),
+  entryPriceB: z.number(),
+  finalPriceA: z.number().nullable().optional(),
+  finalPriceB: z.number().nullable().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  finalizedAt: z.date().nullable().optional(),
+});
+
+export const AddMarketPairToTrackingInputSchema = z.object({
+  pairKey: z.string(),
+  symbol: z.string(),
+  initialArbitrage: z.number(),
+  entryPriceA: z.number(),
+  entryPriceB: z.number(),
+});
+
 export const exchangePairArbitrageSchema = z.object({
   pairKey: z.string(),
   opportunities: z.array(arbitrageSpreadSchema),
 });
 
 export const groupedArbitrageSchema = z.array(exchangePairArbitrageSchema);
+export const userTrackedMarketPairsSchema = z.array(UserTrackedMarketPair);
 
 export type MarketExchange = z.infer<typeof marketExchangesSchema>;
 export type AvailableExchanges = z.infer<typeof availableExchangesSchema>;
 export type ArbitrageSpread = z.infer<typeof arbitrageSpreadSchema>;
 export type GroupedArbitrage = z.infer<typeof groupedArbitrageSchema>;
+export type UserTrackedMarketPairs = z.infer<
+  typeof userTrackedMarketPairsSchema
+>;
+export type AddMarketPairToTrackingInput = z.infer<
+  typeof AddMarketPairToTrackingInputSchema
+>;

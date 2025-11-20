@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getTrpcClient } from "@/lib/trpc";
+import { getTrpcClient, trpc } from "@/lib/trpc";
 import { useEffect, useTransition } from "react";
 import { HiOutlineX } from "react-icons/hi";
 
@@ -96,9 +96,13 @@ async function getSession() {
   }
 }
 
+export type UserTrackedMarketPairsOutput =
+  RouterOutput["MarketRouter"]["getUserTrackedMarketPairs"];
+
+export const trpcClient = getTrpcClient();
+
 export default function Page() {
-  const trpcClient = getTrpcClient();
-  const [status, setStatus] = React.useState<string>("Connected");
+  const [status, setStatus] = React.useState<string>("Disconnected");
   const [currentExchangeFrom, setCurrentExchangeFrom] =
     React.useState<string>("");
   const [currentExchangeTo, setCurrentExchangeTo] = React.useState<string>("");
@@ -120,6 +124,14 @@ export default function Page() {
     exchangeTo: string;
     commonPairs: string[];
   }>();
+  const [userTrackedMarketPairs, setUserTrackedMarketPairs] =
+    React.useState<UserTrackedMarketPairsOutput>([]);
+  // const {
+  //   data: userTrackedMarketPairs,
+  //   isLoading,
+  //   error,
+  // } = trpc.MarketRouter.getUserTrackedMarketPairs.useQuery({});
+  // console.log(error);
   // const [commonPairs, setCommonPairs]
   // const [data, setData] = React.useState<MarketData[]>(mockData);
   const [arbitrageData, setArbitrageData] =
@@ -134,27 +146,27 @@ export default function Page() {
     return `${currentFilter.exchangeFrom}-${currentFilter.exchangeTo}`;
   }, [currentFilter]);
 
-  useEffect(() => {
+  const subscribeToPair = (pairKey: string) => {
     if (!pairKey) return;
-    console.log(pairKey);
     const sub = trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
       { pairKey },
       {
         onData: (data) => setArbitrageData(data),
         onError(err) {
           console.error(err);
-          setStatus("Disconnected");
         },
       }
     );
-
     subscriptionRef.current = sub;
+  };
 
-    return () => {
-      // sub.unsubscribe();
-      // subscriptionRef.current = null;
-    };
-  }, [pairKey]);
+  useEffect(() => {
+    if (currentFilter)
+      subscribeToPair(
+        `${currentFilter.exchangeFrom}-${currentFilter.exchangeTo}`
+      );
+    return () => subscriptionRef.current?.unsubscribe();
+  }, [currentFilter]);
 
   const [updateTime] = React.useState(Date.now());
 
@@ -162,6 +174,9 @@ export default function Page() {
   useEffect(() => {
     const getPairsForExchanges = async () => {
       try {
+        const userTrackedMarketPairs =
+          await trpcClient.MarketRouter.getUserTrackedMarketPairs.query({});
+        setUserTrackedMarketPairs(userTrackedMarketPairs);
         const data =
           await trpcClient.MarketRouter.getSupportedExchangesData.query({});
         setExchangesData(data);
@@ -229,6 +244,7 @@ export default function Page() {
     setPairs([]);
     setCurrentPair("");
     setCurrentExchangeTo("");
+    setStatus("Connected");
   };
 
   const onFilterDelete = (filterToDelete, pairToDelete) => {
@@ -246,7 +262,23 @@ export default function Page() {
 
   const onUpdatesClose = async () => {
     if (!subscriptionRef.current) return;
+    setStatus("Disconnected");
     subscriptionRef.current.unsubscribe();
+  };
+
+  const onUpdatesResume = async () => {
+    if (!pairKey) return;
+    setStatus("Connected");
+    const sub = trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
+      { pairKey },
+      {
+        onData: (data) => setArbitrageData(data),
+        onError(err) {
+          console.error(err);
+        },
+      }
+    );
+    subscriptionRef.current = sub;
   };
 
   const [currentTime, setCurrentTime] = React.useState(Date.now());
@@ -274,13 +306,15 @@ export default function Page() {
     );
     const precison = 4;
     const forwardTableData =
-      forwardData[0]?.opportunities.slice(0, 20).map((item, index) => ({
+      forwardData[0]?.opportunities.slice(0, 15).map((item, index) => ({
         id: index.toString(),
         pair: item.symbol,
+        pairKey: forwardKey,
         valueLong: item.asks[0].price,
         valueShort: item.bids[0].price,
         arbitragePercent: `${item.spreadPercent.toFixed(3)} %`,
         arbitragePercentFees: `${item.spreadPercentFees.toFixed(3)} %`,
+        arbitrageNumber: item.spreadPercent,
         timeFrom: `${item.timestampComputed[0] - item.updateTimestamp[0]} ms`,
         timeTo: `${item.timestampComputed[1] - item.updateTimestamp[1]} ms`,
         finalTime: `1 ms`,
@@ -291,13 +325,15 @@ export default function Page() {
       })) || [];
 
     const backwardTableData =
-      backwardData[0]?.opportunities.slice(0, 20).map((item, index) => ({
+      backwardData[0]?.opportunities.slice(0, 15).map((item, index) => ({
         id: index.toString(),
         pair: item.symbol,
+        pairKey: backwardKey,
         valueLong: item.asks[0].price,
         valueShort: item.bids[0].price,
         arbitragePercent: `${item.spreadPercent.toFixed(3)} %`,
         arbitragePercentFees: `${item.spreadPercentFees.toFixed(3)} %`,
+        arbitrageNumber: item.spreadPercent,
         timeFrom: `${item.timestampComputed[0] - item.updateTimestamp[0]} ms`,
         timeTo: `${item.timestampComputed[1] - item.updateTimestamp[1]} ms`,
         finalTime: `1 ms`,
@@ -315,13 +351,6 @@ export default function Page() {
       <Card className=" border-0 overflow-y-auto">
         <CardTitle className="text-2xl mb-4 flex">
           Live Market Updates{" "}
-          <Status
-            className="rounded-full px-3 py-2 text-sm"
-            status={status === "Connected" ? "online" : "offline"}
-            // variant="outline"
-          >
-            <StatusIndicator />
-          </Status>
         </CardTitle>
         <CardHeader className="flex flex-col">
           <div className="flex gap-2">
@@ -378,40 +407,84 @@ export default function Page() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className=" overflow-y-auto">
-          {tableDataByFilter && (
-            <div className="w-full justify-between border p-4">
-              <div className="w-full flex justify-end">
+        <CardContent className=" overflow-y-auto w-full flex">
+          <div className="w-2/3 justify-between p-4 h-[80vh] relative">
+            <div className="flex justify-between w-full border rounded-xl p-4 content-center">
+              <div className=" text-xl font-semibold mt-1 flex">
+                Current Trade Stream Arbitrage Opportunities USD-M
+                <Status
+                  className="rounded-full px-3 mb-1 text-sm"
+                  status={status === "Connected" ? "online" : "offline"}
+                  // variant="outline"
+                >
+                  <StatusIndicator />
+                </Status>
+              </div>
+              <div className=" flex gap-2">
+                <Button
+                  onClick={() => {
+                    onUpdatesClose();
+                  }}
+                >
+                  Pause
+                </Button>
+                <Button
+                  onClick={() => {
+                    onUpdatesResume();
+                  }}
+                >
+                  Resume
+                </Button>
                 <Button
                   onClick={() => {
                     (onUpdatesClose(), setArbitrageData([]));
                   }}
                 >
-                  X
+                  Stop
                 </Button>
               </div>
-              <div className="flex flex-col">
-                <div className="m-2 rounded-2xl">
-                  <div className=" text-2xl m-2">
-                    {tableDataByFilter.forwardKey}
-                  </div>
-                  <DataTable
-                    columns={columns}
-                    data={tableDataByFilter.forwardTableData}
-                  />
-                </div>
-                <div className="m-2 rounded-2xl">
-                  <div className=" text-2xl m-2">
-                    {tableDataByFilter.backwardKey}
-                  </div>
-                  <DataTable
-                    columns={columns}
-                    data={tableDataByFilter.backwardTableData}
-                  />
-                </div>
-              </div>
             </div>
-          )}
+            <div className="overflow-y-auto h-9/10 pt-5">
+              {tableDataByFilter && (
+                <div className="flex flex-col gap-4">
+                  <Card>
+                    <CardTitle>{tableDataByFilter.forwardKey}</CardTitle>
+                    <CardContent className="m-0 p-0">
+                      <DataTable
+                        columns={columns}
+                        data={tableDataByFilter.forwardTableData}
+                      />
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardTitle>{tableDataByFilter.backwardKey}</CardTitle>
+                    <CardContent className="m-0 p-0">
+                      <DataTable
+                        columns={columns}
+                        data={tableDataByFilter.backwardTableData}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="w-1/3 justify-between p-4">
+            <Card>
+              <CardTitle>Your own Opportunities</CardTitle>
+              <CardContent className="">
+                {userTrackedMarketPairs.length === 0 ? (
+                  <div className="text-center p-10 text-muted-foreground">
+                    You have not added any market pairs to track yet.
+                  </div>
+                ) : (
+                  <div className="text-center p-10 text-muted-foreground overflow-auto">
+                    {/* {JSON.stringify(userTrackedMarketPairs)} */}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </CardContent>
       </Card>
     </div>

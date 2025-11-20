@@ -2,8 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { EncryptionService } from './encryption.service';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import { prisma } from '../main';
 
 export interface BinanceCredentialsInput {
   apiKey: string;

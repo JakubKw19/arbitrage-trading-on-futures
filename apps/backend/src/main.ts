@@ -2,8 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
 import { auth } from '@repo/auth';
+import { PrismaClient } from '@prisma/client';
 
 declare const module: any;
+
+export const prisma = new PrismaClient();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
