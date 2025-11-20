@@ -22,7 +22,7 @@ export type ExchangeData = {
   takerFeeTo?: string;
 };
 
-const addPairToTracking = async (
+export const addPairToTracking = async (
   pairKey: string,
   symbol: string,
   initialArbitrage: number,
@@ -41,7 +41,9 @@ const addPairToTracking = async (
   });
 };
 
-export const columns: ColumnDef<ExchangeData>[] = [
+export const getColumns = (
+  onAfterAddPair: () => Promise<void>
+): ColumnDef<ExchangeData>[] => [
   {
     accessorKey: "id",
     header: "",
@@ -49,16 +51,17 @@ export const columns: ColumnDef<ExchangeData>[] = [
       <div className="w-[40px] text-right">
         <Button
           variant="outline"
-          className=" text-accent"
-          onClick={() =>
-            addPairToTracking(
+          className="text-accent"
+          onClick={async () => {
+            await addPairToTracking(
               row.original.pairKey,
               row.original.pair,
               row.original.arbitrageNumber,
               row.original.valueLong,
               row.original.valueShort
-            )
-          }
+            );
+            await onAfterAddPair?.();
+          }}
         >
           +
         </Button>
@@ -146,3 +149,5 @@ export const columns: ColumnDef<ExchangeData>[] = [
     cell: ({ row }) => <div className="w-[70px]">{row.getValue("timeTo")}</div>,
   },
 ];
+
+// const columns = getColumns(onAfterAddPair);

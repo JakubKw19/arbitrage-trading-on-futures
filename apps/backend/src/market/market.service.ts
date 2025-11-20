@@ -42,6 +42,7 @@ export class MarketService {
       const res = await prisma.trade.findMany({
         where: { userId },
         select: {
+          id: true,
           pairKey: true,
           symbol: true,
           isCompleted: true,
@@ -64,5 +65,20 @@ export class MarketService {
           (err instanceof Error ? err.message : String(err)),
       );
     }
+  }
+
+  async removeMarketPairFromTracking(
+    userId: string,
+    tradeId: string,
+  ): Promise<void> {
+    const trade = await prisma.trade.findUnique({
+      where: { id: tradeId },
+    });
+    if (!trade || trade.userId !== userId) {
+      throw new NotFoundException('Trade not found or access denied');
+    }
+    await prisma.trade.delete({
+      where: { id: tradeId },
+    });
   }
 }

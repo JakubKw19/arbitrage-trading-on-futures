@@ -26,8 +26,8 @@ import {
 import { inferRouterOutputs } from "@trpc/server";
 import { authClient } from "@/lib/auth-client";
 import { DataTable } from "./table/data-table";
-import { columns, ExchangeData } from "./table/columns";
 import { useMemo } from "react";
+import { UserTrades } from "./userTrades/UserTrades";
 
 const exchanges = [
   "Binance",
@@ -134,12 +134,19 @@ export default function Page() {
   // console.log(error);
   // const [commonPairs, setCommonPairs]
   // const [data, setData] = React.useState<MarketData[]>(mockData);
-  const [arbitrageData, setArbitrageData] =
-    React.useState<MarketOnGroupedArbitrageUpdateOutputSchemaType>([]);
+  const [tick, setTick] = React.useState(0);
+  const forceRender = () => setTick((t) => t + 1);
+  const arbitrageData =
+    React.useRef<MarketOnGroupedArbitrageUpdateOutputSchemaType>([]);
+
+  // const [arbitrageData, setArbitrageData] =
+  //   React.useState<MarketOnGroupedArbitrageUpdateOutputSchemaType>([]);
 
   const subscriptionRef = React.useRef<ReturnType<
     typeof trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe
   > | null>(null);
+
+  const lastRenderTime = React.useRef(0);
 
   const pairKey = useMemo(() => {
     if (!currentFilter) return null;
@@ -148,10 +155,18 @@ export default function Page() {
 
   const subscribeToPair = (pairKey: string) => {
     if (!pairKey) return;
+
     const sub = trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
       { pairKey },
       {
-        onData: (data) => setArbitrageData(data),
+        onData: (data) => {
+          arbitrageData.current = data;
+          const now = Date.now();
+          if (now - lastRenderTime.current > 33) {
+            lastRenderTime.current = now;
+            forceRender();
+          }
+        },
         onError(err) {
           console.error(err);
         },
@@ -170,13 +185,20 @@ export default function Page() {
 
   const [updateTime] = React.useState(Date.now());
 
-  const latestDataRef = React.useRef(null);
+  const getUserTrackedMarketPairs = async () => {
+    console.log("Fetching user tracked market pairs...");
+    try {
+      const userTrackedMarketPairs =
+        await trpcClient.MarketRouter.getUserTrackedMarketPairs.query({});
+      console.log("Fetched user tracked market pairs:", userTrackedMarketPairs);
+      setUserTrackedMarketPairs(userTrackedMarketPairs);
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+    }
+  };
   useEffect(() => {
     const getPairsForExchanges = async () => {
       try {
-        const userTrackedMarketPairs =
-          await trpcClient.MarketRouter.getUserTrackedMarketPairs.query({});
-        setUserTrackedMarketPairs(userTrackedMarketPairs);
         const data =
           await trpcClient.MarketRouter.getSupportedExchangesData.query({});
         setExchangesData(data);
@@ -184,10 +206,9 @@ export default function Page() {
         console.error("Error fetching exchanges:", err);
       }
     };
-
+    getUserTrackedMarketPairs();
     getPairsForExchanges();
   }, []);
-  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (currentExchangeFrom === currentExchangeTo) {
@@ -247,19 +268,6 @@ export default function Page() {
     setStatus("Connected");
   };
 
-  const onFilterDelete = (filterToDelete, pairToDelete) => {
-    // setFilters((prevFilters) =>
-    //   prevFilters
-    //     .filter((filter) => filter.id === filterToDelete.id)
-    //     .map((filter) => ({
-    //       ...filter,
-    //       commonPairs: filter.commonPairs.filter(
-    //         (pair) => pair !== pairToDelete
-    //       ),
-    //     }))
-    // );
-  };
-
   const onUpdatesClose = async () => {
     if (!subscriptionRef.current) return;
     setStatus("Disconnected");
@@ -269,16 +277,9 @@ export default function Page() {
   const onUpdatesResume = async () => {
     if (!pairKey) return;
     setStatus("Connected");
-    const sub = trpcClient.MarketRouter.onGroupedArbitrageUpdate.subscribe(
-      { pairKey },
-      {
-        onData: (data) => setArbitrageData(data),
-        onError(err) {
-          console.error(err);
-        },
-      }
+    subscribeToPair(
+      `${currentFilter.exchangeFrom}-${currentFilter.exchangeTo}`
     );
-    subscriptionRef.current = sub;
   };
 
   const [currentTime, setCurrentTime] = React.useState(Date.now());
@@ -292,16 +293,16 @@ export default function Page() {
   // }, []);
 
   const tableDataByFilter = useMemo(() => {
-    console.log(arbitrageData);
+    // console.log(arbitrageData);
     if (!currentFilter || !arbitrageData) return;
     const filter = currentFilter;
     const forwardKey = `${filter.exchangeFrom}-${filter.exchangeTo}`;
     const backwardKey = `${filter.exchangeTo}-${filter.exchangeFrom}`;
 
-    const forwardData = arbitrageData.filter(
+    const forwardData = arbitrageData.current.filter(
       (item) => item.pairKey === forwardKey
     );
-    const backwardData = arbitrageData.filter(
+    const backwardData = arbitrageData.current.filter(
       (item) => item.pairKey === backwardKey
     );
     const precison = 4;
@@ -344,7 +345,9 @@ export default function Page() {
       })) || [];
 
     return { forwardKey, backwardKey, forwardTableData, backwardTableData };
-  }, [currentFilter, arbitrageData]);
+  }, [currentFilter, tick]);
+
+  const MemoTable = React.memo(DataTable);
 
   return (
     <div>
@@ -437,7 +440,7 @@ export default function Page() {
                 </Button>
                 <Button
                   onClick={() => {
-                    (onUpdatesClose(), setArbitrageData([]));
+                    (onUpdatesClose(), (arbitrageData.current = []));
                   }}
                 >
                   Stop
@@ -450,18 +453,18 @@ export default function Page() {
                   <Card>
                     <CardTitle>{tableDataByFilter.forwardKey}</CardTitle>
                     <CardContent className="m-0 p-0">
-                      <DataTable
-                        columns={columns}
+                      <MemoTable
                         data={tableDataByFilter.forwardTableData}
+                        onAfterAddPair={getUserTrackedMarketPairs}
                       />
                     </CardContent>
                   </Card>
                   <Card>
                     <CardTitle>{tableDataByFilter.backwardKey}</CardTitle>
                     <CardContent className="m-0 p-0">
-                      <DataTable
-                        columns={columns}
+                      <MemoTable
                         data={tableDataByFilter.backwardTableData}
+                        onAfterAddPair={getUserTrackedMarketPairs}
                       />
                     </CardContent>
                   </Card>
@@ -469,21 +472,11 @@ export default function Page() {
               )}
             </div>
           </div>
-          <div className="w-1/3 justify-between p-4">
-            <Card>
-              <CardTitle>Your own Opportunities</CardTitle>
-              <CardContent className="">
-                {userTrackedMarketPairs.length === 0 ? (
-                  <div className="text-center p-10 text-muted-foreground">
-                    You have not added any market pairs to track yet.
-                  </div>
-                ) : (
-                  <div className="text-center p-10 text-muted-foreground overflow-auto">
-                    {/* {JSON.stringify(userTrackedMarketPairs)} */}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <div className="w-1/3 justify-between h-9/10 p-4 overflow-y-auto">
+            <UserTrades
+              userTrackedMarketPairs={userTrackedMarketPairs}
+              getUserTrackedMarketPairs={getUserTrackedMarketPairs}
+            />
           </div>
         </CardContent>
       </Card>

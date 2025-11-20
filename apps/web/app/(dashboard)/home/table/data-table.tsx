@@ -15,19 +15,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getColumns } from "./columns";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  onAfterAddPair?: () => Promise<void>;
 }
 
 export function DataTable<TData, TValue>({
-  columns,
   data,
+  onAfterAddPair,
 }: DataTableProps<TData, TValue>) {
+  const allColumns = getColumns(onAfterAddPair) as ColumnDef<TData, TValue>[];
   const table = useReactTable({
     data,
-    columns,
+    columns: allColumns,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -68,7 +70,10 @@ export function DataTable<TData, TValue>({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
+              <TableCell
+                colSpan={allColumns.length}
+                className="h-24 text-center"
+              >
                 No results.
               </TableCell>
             </TableRow>

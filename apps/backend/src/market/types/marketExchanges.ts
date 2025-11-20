@@ -48,6 +48,7 @@ export const arbitrageSpreadSchema = z.object({
 });
 
 export const UserTrackedMarketPair = z.object({
+  id: z.string(),
   pairKey: z.string(),
   symbol: z.string(),
   isCompleted: z.boolean(),

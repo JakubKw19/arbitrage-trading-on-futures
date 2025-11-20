@@ -21,27 +21,54 @@ const pairMap = new Map<string, MarketExchange>();
 const allArbitrageSpreads = new Map<string, ArbitrageSpread>();
 
 let isProcessingUpdate = false;
+let hasPendingUpdate = false;
+let debounceTimer: NodeJS.Timeout | null = null;
 
-let updateScheduled = false;
 export function updatePairExchange(pairExchange: MarketExchange) {
   const key = `${pairExchange.exchange}:${pairExchange.symbol}`;
   pairMap.set(key, pairExchange);
+
   marketExchangesSubject.next(Array.from(pairMap.values()));
 
-  if (updateScheduled) return;
-  updateScheduled = true;
+  scheduleArbitrageCalculation();
+}
 
-  setTimeout(() => {
-    updateScheduled = false;
-    if (isProcessingUpdate) return;
+function scheduleArbitrageCalculation() {
+  if (isProcessingUpdate) {
+    hasPendingUpdate = true;
+    return;
+  }
 
-    isProcessingUpdate = true;
-    try {
-      updateArbitrageSpread();
-    } finally {
-      isProcessingUpdate = false;
+  if (debounceTimer) {
+    return;
+  }
+
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    processUpdates();
+  }, 20); // 20ms debounce
+}
+
+async function processUpdates() {
+  if (isProcessingUpdate) {
+    hasPendingUpdate = true;
+    return;
+  }
+
+  isProcessingUpdate = true;
+  hasPendingUpdate = false;
+
+  try {
+    updateArbitrageSpread();
+  } catch (error) {
+    console.error('Error calculating arbitrage spread:', error);
+  } finally {
+    isProcessingUpdate = false;
+
+    if (hasPendingUpdate) {
+      scheduleArbitrageCalculation();
     }
-  }, 20); // small debounce
+  }
 }
 
 function groupArbitrageByExchangePair(spreads: ArbitrageSpread[]) {

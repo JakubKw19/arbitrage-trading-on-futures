@@ -1,6 +1,6 @@
 import * as marketExchanges from './types/marketExchanges';
 import {
-  arbitrageSpreadSubject,
+  // arbitrageSpreadSubject,
   availableExchangesSubject,
   getAvailableExchanges,
   groupedArbitrageSubject,
@@ -21,6 +21,7 @@ import { MexcClient } from './MexcClient';
 import type { AuthContext } from '../app.context';
 import { MarketService } from './market.service';
 import type { AddMarketPairToTrackingInput } from './types/marketExchanges';
+import { filter, map, auditTime } from 'rxjs';
 
 const getSupportedExchangesDataInputSchema = z.object({
   exchangeFrom: z.string(),
@@ -64,6 +65,26 @@ export class MarketRouter {
     return this.marketService.addMarketPairToTracking(ctx.user.id, input);
   }
 
+  @Mutation({
+    input: z.object({ tradeId: z.string() }),
+    output: z.void(),
+  })
+  async removeUserTrackedMarketPair(
+    @Input() input: { tradeId: string },
+    @Context() ctx: AuthContext,
+  ): Promise<void> {
+    if (!ctx.isAuthenticated || !ctx.user) {
+      throw new Error('Not authenticated');
+    }
+    console.log(
+      `Removing trade with ID: ${input.tradeId} for user: ${ctx.user.id}`,
+    );
+    await this.marketService.removeMarketPairFromTracking(
+      ctx.user.id,
+      input.tradeId,
+    );
+  }
+
   @Query({
     input: z.object({}),
     output: marketExchanges.userTrackedMarketPairsSchema,
@@ -102,96 +123,66 @@ export class MarketRouter {
     input: z.object({ pairKey: z.string() }),
     output: marketExchanges.groupedArbitrageSchema,
   })
-  onGroupedArbitrageUpdate(input: {
-    pairKey: string;
-  }): AsyncIterableIterator<marketExchanges.GroupedArbitrage> {
-    let latestData: marketExchanges.GroupedArbitrage | null = null;
-    let waitingResolve:
-      | ((data: marketExchanges.GroupedArbitrage) => void)
-      | null = null;
-    // console.log(input.pairKey);
-    const sub = groupedArbitrageSubject.subscribe((dataArray) => {
-      const [from, to] = input.pairKey.split('-');
-      const reversed = `${to}-${from}`;
+  onGroupedArbitrageUpdate(input: { pairKey: string }) {
+    const [from, to] = input.pairKey.split('-');
+    const reversed = `${to}-${from}`;
 
-      const filteredData = dataArray.filter(
-        (item) => item.pairKey === input.pairKey || item.pairKey === reversed,
-      );
-      if (filteredData.length === 0) return;
-      latestData = filteredData;
-
-      if (waitingResolve) {
-        waitingResolve(latestData);
-        waitingResolve = null;
-        latestData = null;
-      }
-    });
-
-    return (async function* () {
-      try {
-        while (true) {
-          if (latestData) {
-            yield latestData;
-            latestData = null;
-          } else {
-            const data = await new Promise<marketExchanges.GroupedArbitrage>(
-              (resolve) => {
-                waitingResolve = resolve;
-              },
-            );
-            yield data;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-      } finally {
-        sub.unsubscribe();
-      }
-    })();
+    // Use RxJS pipeline to filter only relevant pairKey updates
+    return groupedArbitrageSubject.asObservable().pipe(
+      auditTime(50),
+      map((dataArray) =>
+        dataArray.filter(
+          (item) => item.pairKey === input.pairKey || item.pairKey === reversed,
+        ),
+      ),
+      // Only emit if there’s at least one match
+      filter((filteredData) => filteredData.length > 0),
+    );
   }
 
-  @Subscription({
-    input: z.object(),
-    output: z.array(marketExchanges.arbitrageSpreadSchema),
-  })
-  onMarketUpdate(
-    @Input() input: void,
-  ): AsyncIterableIterator<marketExchanges.ArbitrageSpread[]> {
-    const asyncQueue: ((data: marketExchanges.ArbitrageSpread[]) => void)[] =
-      [];
-    let latestData: marketExchanges.ArbitrageSpread[] | null = null;
+  // @Subscription({
+  //   input: z.object(),
+  //   output: z.array(marketExchanges.arbitrageSpreadSchema),
+  // })
+  // onMarketUpdate(
+  //   @Input() input: void,
+  // ): AsyncIterableIterator<marketExchanges.ArbitrageSpread[]> {
+  //   const asyncQueue: ((data: marketExchanges.ArbitrageSpread[]) => void)[] =
+  //     [];
+  //   let latestData: marketExchanges.ArbitrageSpread[] | null = null;
 
-    const sub = arbitrageSpreadSubject.subscribe((dataArray) => {
-      latestData = dataArray;
-      if (asyncQueue.length > 0) {
-        const resolve = asyncQueue.shift();
-        if (resolve) {
-          resolve(latestData);
-          latestData = null;
-        }
-      }
-    });
+  //   const sub = arbitrageSpreadSubject.subscribe((dataArray) => {
+  //     latestData = dataArray;
+  //     if (asyncQueue.length > 0) {
+  //       const resolve = asyncQueue.shift();
+  //       if (resolve) {
+  //         resolve(latestData);
+  //         latestData = null;
+  //       }
+  //     }
+  //   });
 
-    return (async function* () {
-      try {
-        while (true) {
-          const nextData = await new Promise<marketExchanges.ArbitrageSpread[]>(
-            (resolve) => {
-              if (latestData) {
-                resolve(latestData);
-                latestData = null;
-              } else {
-                asyncQueue.push(resolve);
-              }
-            },
-          );
-          yield nextData;
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-      } finally {
-        sub.unsubscribe();
-      }
-    })();
-  }
+  //   return (async function* () {
+  //     try {
+  //       while (true) {
+  //         const nextData = await new Promise<marketExchanges.ArbitrageSpread[]>(
+  //           (resolve) => {
+  //             if (latestData) {
+  //               resolve(latestData);
+  //               latestData = null;
+  //             } else {
+  //               asyncQueue.push(resolve);
+  //             }
+  //           },
+  //         );
+  //         yield nextData;
+  //         await new Promise((resolve) => setTimeout(resolve, 50));
+  //       }
+  //     } finally {
+  //       sub.unsubscribe();
+  //     }
+  //   })();
+  // }
 
   private async ensureClientSubscribed(
     exchange: string,
