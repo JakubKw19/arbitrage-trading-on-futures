@@ -21,7 +21,7 @@ import { Status, StatusIndicator } from "components/kibo-ui/status";
 import {
   AppRouter,
   MarketOnGroupedArbitrageUpdateOutputSchemaType,
-  MarketOnMarketUpdateOutputSchemaType,
+  // MarketOnMarketUpdateOutputSchemaType,
 } from "@repo/trpc/server/server";
 import { inferRouterOutputs } from "@trpc/server";
 import { authClient } from "@/lib/auth-client";

@@ -122,13 +122,18 @@ export const MarketOnGroupedArbitrageUpdateOutputSchema = z.array(SchemaINAS9J);
 export type MarketOnGroupedArbitrageUpdateOutputSchemaType = z.infer<
   typeof MarketOnGroupedArbitrageUpdateOutputSchema
 >;
-export const MarketOnMarketUpdateInputSchema = z.object({});
-export type MarketOnMarketUpdateInputSchemaType = z.infer<
-  typeof MarketOnMarketUpdateInputSchema
+export const SchemaBSYLFY = z.object({
+  pairKey: z.string(),
+  symbol: z.string(),
+});
+export type SchemaBSYLFYType = z.infer<typeof SchemaBSYLFY>;
+export const MarketOnUserArbitrageUpdateInputSchema = z.array(SchemaBSYLFY);
+export type MarketOnUserArbitrageUpdateInputSchemaType = z.infer<
+  typeof MarketOnUserArbitrageUpdateInputSchema
 >;
-export const MarketOnMarketUpdateOutputSchema = z.array(Schema5VEYHT);
-export type MarketOnMarketUpdateOutputSchemaType = z.infer<
-  typeof MarketOnMarketUpdateOutputSchema
+export const MarketOnUserArbitrageUpdateOutputSchema = z.array(SchemaINAS9J);
+export type MarketOnUserArbitrageUpdateOutputSchemaType = z.infer<
+  typeof MarketOnUserArbitrageUpdateOutputSchema
 >;
 export const CredentialsGetBinanceCredentialsInputSchema = z.object({});
 export type CredentialsGetBinanceCredentialsInputSchemaType = z.infer<
@@ -212,10 +217,10 @@ const MarketRouter = router({
     .subscription(async function* () {
       yield {} as z.infer<typeof MarketOnGroupedArbitrageUpdateOutputSchema>;
     }),
-  onMarketUpdate: publicProcedure
-    .input(MarketOnMarketUpdateInputSchema)
+  onUserArbitrageUpdate: publicProcedure
+    .input(MarketOnUserArbitrageUpdateInputSchema)
     .subscription(async function* () {
-      yield {} as z.infer<typeof MarketOnMarketUpdateOutputSchema>;
+      yield {} as z.infer<typeof MarketOnUserArbitrageUpdateOutputSchema>;
     }),
 });
 

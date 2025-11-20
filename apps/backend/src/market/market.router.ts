@@ -14,7 +14,7 @@ import {
   Router,
   Subscription,
 } from '@nexica/nestjs-trpc';
-import z from 'zod';
+import z, { symbol } from 'zod';
 import { BinanceClient } from './BinanceClient';
 import { OkxClient } from './OkxClient';
 import { MexcClient } from './MexcClient';
@@ -137,6 +137,43 @@ export class MarketRouter {
       ),
       // Only emit if there’s at least one match
       filter((filteredData) => filteredData.length > 0),
+    );
+  }
+
+  @Subscription({
+    input: z.array(
+      z.object({
+        pairKey: z.string(),
+        symbol: z.string(),
+      }),
+    ),
+    output: marketExchanges.groupedArbitrageSchema,
+  })
+  onUserArbitrageUpdate(input: { pairKey: string; symbol: string }[]) {
+    const allowedKeys = new Set<string>();
+
+    input.forEach((t) => {
+      allowedKeys.add(`${t.pairKey}::${t.symbol}`);
+    });
+    console.log(allowedKeys);
+    return groupedArbitrageSubject.asObservable().pipe(
+      auditTime(50),
+      map((groups) => {
+        return groups
+          .map((group) => {
+            const filteredOpp = group.opportunities.filter((opp) => {
+              const uniqueKey = `${group.pairKey}::${opp.symbol}`;
+              return allowedKeys.has(uniqueKey);
+            });
+            console.log(filteredOpp);
+            return {
+              ...group,
+              opportunities: filteredOpp,
+            };
+          })
+          .filter((group) => group.opportunities.length > 0);
+      }),
+      filter((finalData) => finalData.length > 0),
     );
   }
 
