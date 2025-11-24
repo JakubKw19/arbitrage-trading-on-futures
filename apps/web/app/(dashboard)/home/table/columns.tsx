@@ -71,82 +71,58 @@ export const getColumns = (
   {
     accessorKey: "pair",
     header: "Symbols",
-    cell: ({ row }) => (
-      <div className="w-[120px] truncate">{row.getValue("pair")}</div>
-    ),
+    cell: ({ row }) => <div className="truncate">{row.getValue("pair")}</div>,
   },
   {
     accessorKey: "valueLong",
     header: "Long",
-    cell: ({ row }) => (
-      <div className="w-[80px] text-right">{row.getValue("valueLong")}</div>
-    ),
+    cell: ({ row }) => <div>{row.getValue("valueLong")}</div>,
   },
   {
     accessorKey: "valueShort",
     header: "Short",
-    cell: ({ row }) => (
-      <div className="w-[80px] text-right">{row.getValue("valueShort")}</div>
-    ),
-  },
-  {
-    accessorKey: "arbitragePercent",
-    header: "Arbitrage %",
-    cell: ({ row }) => (
-      <div className="w-[100px] text-right">
-        {row.getValue("arbitragePercent")}
-      </div>
-    ),
+    cell: ({ row }) => <div>{row.getValue("valueShort")}</div>,
   },
   {
     accessorKey: "arbitragePercentFees",
-    header: "Arbitrage % + Fees",
+    header: "Arbitrage %",
     cell: ({ row }) => (
-      <div className="w-[100px] text-right">
-        {row.getValue("arbitragePercentFees")}
+      <div className="flex flex-col">
+        <div>{row.original.arbitragePercent}</div>
+        <div>{row.getValue("arbitragePercentFees") + " (fees)"}</div>
       </div>
     ),
   },
   {
     accessorKey: "fundingRateFrom",
-    header: "Funding rate ->",
+    header: "Funding rate",
     cell: ({ row }) => (
-      <div className="w-[130px]">{row.getValue("fundingRateFrom")}</div>
-    ),
-  },
-  {
-    accessorKey: "fundingRateTo",
-    header: "Funding rate <-",
-    cell: ({ row }) => (
-      <div className="w-[130px]">{row.getValue("fundingRateTo")}</div>
+      <div className="flex flex-col">
+        <div>{row.getValue("fundingRateFrom") + " %"}</div>
+        <div>{row.getValue("fundingRateTo") + " %"}</div>
+      </div>
     ),
   },
   {
     accessorKey: "takerFeeFrom",
-    header: "Fee 1st",
+    header: "Taker Fees",
     cell: ({ row }) => (
-      <div className="w-[80px]">{row.getValue("takerFeeFrom")}</div>
-    ),
-  },
-  {
-    accessorKey: "takerFeeTo",
-    header: "Fee 2nd",
-    cell: ({ row }) => (
-      <div className="w-[80px]">{row.getValue("takerFeeTo")}</div>
+      <div className="flex flex-col">
+        <div>{row.getValue("takerFeeFrom")}</div>
+        <div>{row.getValue("takerFeeTo")}</div>
+      </div>
     ),
   },
   {
     accessorKey: "timeFrom",
     header: "Time from",
 
-    cell: ({ row }) => (
-      <div className="w-[70px]">{row.getValue("timeFrom")}</div>
-    ),
+    cell: ({ row }) => <div>{row.getValue("timeFrom")}</div>,
   },
   {
     accessorKey: "timeTo",
     header: "Time to",
-    cell: ({ row }) => <div className="w-[70px]">{row.getValue("timeTo")}</div>,
+    cell: ({ row }) => <div>{row.getValue("timeTo")}</div>,
   },
 ];
 

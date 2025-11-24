@@ -411,19 +411,19 @@ export default function Page() {
           </div>
         </CardHeader>
         <CardContent className=" overflow-y-auto w-full flex">
-          <div className="w-2/3 justify-between p-4 h-[80vh] relative">
+          <div className="w-2/3 justify-between h-[80vh] relative">
             <div className="flex justify-between w-full border rounded-xl p-4 content-center">
-              <div className=" text-xl font-semibold mt-1 flex">
-                Current Trade Stream Arbitrage Opportunities USD-M
+              <div className=" 2xl:text-xl font-semibold mt-1 flex w-fit">
                 <Status
-                  className="rounded-full px-3 mb-1 text-sm"
+                  className="rounded-full px-3 mb-1"
                   status={status === "Connected" ? "online" : "offline"}
                   // variant="outline"
                 >
                   <StatusIndicator />
                 </Status>
+                Current Trade Stream Arbitrage Opportunities USD-M
               </div>
-              <div className=" flex gap-2">
+              <div className=" flex gap-2 items-center">
                 <Button
                   onClick={() => {
                     onUpdatesClose();
@@ -472,7 +472,7 @@ export default function Page() {
               )}
             </div>
           </div>
-          <div className="w-1/3 justify-between h-9/10 p-4 overflow-y-auto">
+          <div className="w-1/3 justify-between h-9/10 px-4 overflow-y-auto">
             <UserTrades
               userTrackedMarketPairs={userTrackedMarketPairs}
               getUserTrackedMarketPairs={getUserTrackedMarketPairs}
