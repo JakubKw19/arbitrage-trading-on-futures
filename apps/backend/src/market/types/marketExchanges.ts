@@ -34,6 +34,7 @@ export const arbitrageSpreadSchema = z.object({
   exchangeTo: z.enum(['binance', 'okx', 'kraken', 'mexc']),
   symbol: z.string(),
   spread: z.number(),
+  quantity: z.number(),
   spreadPercent: z.number(),
   spreadPercentFees: z.number(),
   bids: z.array(orders),
@@ -53,6 +54,7 @@ export const UserTrackedMarketPair = z.object({
   symbol: z.string(),
   isCompleted: z.boolean(),
   initialArbitrage: z.number(),
+  quantity: z.number().nullable().optional(),
   finalArbitrage: z.number().nullable().optional(),
   entryPriceA: z.number(),
   entryPriceB: z.number(),
@@ -66,6 +68,7 @@ export const UserTrackedMarketPair = z.object({
 export const AddMarketPairToTrackingInputSchema = z.object({
   pairKey: z.string(),
   symbol: z.string(),
+  quantity: z.number(),
   initialArbitrage: z.number(),
   entryPriceA: z.number(),
   entryPriceB: z.number(),

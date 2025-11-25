@@ -11,6 +11,7 @@ export type ExchangeData = {
   pairKey: string;
   valueLong: number;
   valueShort: number;
+  quantity: number;
   arbitragePercent: string;
   arbitrageNumber: number;
   timeFrom: string;
@@ -25,6 +26,7 @@ export type ExchangeData = {
 export const addPairToTracking = async (
   pairKey: string,
   symbol: string,
+  quantity: number,
   initialArbitrage: number,
   entryPriceA: number,
   entryPriceB: number
@@ -35,6 +37,7 @@ export const addPairToTracking = async (
   await trpcClient.MarketRouter.addMarketPairToTracking.mutate({
     pairKey,
     symbol,
+    quantity,
     initialArbitrage,
     entryPriceA,
     entryPriceB,
@@ -56,6 +59,7 @@ export const getColumns = (
             await addPairToTracking(
               row.original.pairKey,
               row.original.pair,
+              row.original.quantity,
               row.original.arbitrageNumber,
               row.original.valueLong,
               row.original.valueShort
@@ -84,6 +88,11 @@ export const getColumns = (
     cell: ({ row }) => <div>{row.getValue("valueShort")}</div>,
   },
   {
+    accessorKey: "quantity",
+    header: "Quantity",
+    cell: ({ row }) => <div>{row.getValue("quantity")}</div>,
+  },
+  {
     accessorKey: "arbitragePercentFees",
     header: "Arbitrage %",
     cell: ({ row }) => (
@@ -99,7 +108,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div className="flex flex-col">
         <div>{row.getValue("fundingRateFrom") + " %"}</div>
-        <div>{row.getValue("fundingRateTo") + " %"}</div>
+        <div>{row.original.fundingRateTo + " %"}</div>
       </div>
     ),
   },
@@ -109,7 +118,7 @@ export const getColumns = (
     cell: ({ row }) => (
       <div className="flex flex-col">
         <div>{row.getValue("takerFeeFrom")}</div>
-        <div>{row.getValue("takerFeeTo")}</div>
+        <div>{row.original.takerFeeTo}</div>
       </div>
     ),
   },

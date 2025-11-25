@@ -29,6 +29,7 @@ export type MarketGetSupportedExchangesDataOutputSchemaType = z.infer<
 export const MarketAddMarketPairToTrackingInputSchema = z.object({
   pairKey: z.string(),
   symbol: z.string(),
+  quantity: z.number(),
   initialArbitrage: z.number(),
   entryPriceA: z.number(),
   entryPriceB: z.number(),
@@ -52,6 +53,7 @@ export const SchemaKIR5DX = z.object({
   symbol: z.string(),
   isCompleted: z.boolean(),
   initialArbitrage: z.number(),
+  quantity: z.number().nullable().optional(),
   finalArbitrage: z.number().nullable().optional(),
   entryPriceA: z.number(),
   entryPriceB: z.number(),
@@ -89,11 +91,12 @@ export const SchemaWR6RI9 = z.object({
   quantity: z.number(),
 });
 export type SchemaWR6RI9Type = z.infer<typeof SchemaWR6RI9>;
-export const Schema5VEYHT = z.object({
+export const SchemaGZXKH4 = z.object({
   exchangeFrom: z.enum(["binance", "okx", "kraken", "mexc"]),
   exchangeTo: z.enum(["binance", "okx", "kraken", "mexc"]),
   symbol: z.string(),
   spread: z.number(),
+  quantity: z.number(),
   spreadPercent: z.number(),
   spreadPercentFees: z.number(),
   get bids(): z.ZodArray<typeof SchemaWR6RI9> {
@@ -110,11 +113,11 @@ export const Schema5VEYHT = z.object({
   takerFeeFrom: z.number().optional(),
   takerFeeTo: z.number().optional(),
 });
-export type Schema5VEYHTType = z.infer<typeof Schema5VEYHT>;
+export type SchemaGZXKH4Type = z.infer<typeof SchemaGZXKH4>;
 export const SchemaINAS9J = z.object({
   pairKey: z.string(),
-  get opportunities(): z.ZodArray<typeof Schema5VEYHT> {
-    return z.array(Schema5VEYHT) as z.ZodArray<typeof Schema5VEYHT>;
+  get opportunities(): z.ZodArray<typeof SchemaGZXKH4> {
+    return z.array(SchemaGZXKH4) as z.ZodArray<typeof SchemaGZXKH4>;
   },
 });
 export type SchemaINAS9JType = z.infer<typeof SchemaINAS9J>;

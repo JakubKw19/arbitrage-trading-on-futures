@@ -23,23 +23,24 @@ export function UserTrades({
   getUserTrackedMarketPairs,
 }: UserTradesProps) {
   return (
-    <Card>
-      <CardTitle>Your own Opportunities</CardTitle>
-      <CardContent className="">
+    <Card className="px-2">
+      <CardTitle className="text-center">Your own Opportunities</CardTitle>
+      <CardContent className="p-1">
         {userTrackedMarketPairs.length === 0 ? (
           <div className="text-center p-10 text-muted-foreground">
             You have not added any market pairs to track yet.
           </div>
         ) : (
-          <div className="text-center p-10 text-muted-foreground overflow-auto">
+          <div className="p-1 text-muted-foreground overflow-auto">
             {userTrackedMarketPairs.map((pair, index) => (
-              <div key={pair.id} className="mb-4 border-b pb-2">
-                <div>
-                  Pair: {pair.symbol} ({pair.pairKey})
+              <div key={pair.id} className="mb-4 border-b text-xs pb-2">
+                <div className="text-white text-sm flex w-full justify-between mb-1">
+                  <span className=" text-accent-foreground">{pair.symbol}</span>
+                  <span>{pair.pairKey.toUpperCase()}</span>
                 </div>
-                <div>Initial Arbitrage: {pair.initialArbitrage}%</div>
-                <div>Entry Price A: {pair.entryPriceA}</div>
-                <div>Entry Price B: {pair.entryPriceB}</div>
+                <div>Arbitrage: {pair.initialArbitrage.toFixed(4)}%</div>
+                <div>Long: {pair.entryPriceA}</div>
+                <div>Short: {pair.entryPriceB}</div>
                 <Button
                   className="m-2"
                   onClick={() =>

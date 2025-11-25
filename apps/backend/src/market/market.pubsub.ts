@@ -128,7 +128,15 @@ export function updateArbitrageSpread() {
         const bestBidB = exB.bids[0]?.price;
         const bestAskB = exB.asks[0]?.price;
 
+        const quantityBidA = exA.bids[0]?.quantity;
+        const quantityAskA = exA.asks[0]?.quantity;
+        const quantityBidB = exB.asks[0]?.quantity;
+        const quantityAskB = exB.asks[0]?.quantity;
+
         if (!bestBidA || !bestAskA || !bestBidB || !bestAskB) continue;
+
+        const minQuantityAB = Math.min(quantityBidA ?? 0, quantityAskB ?? 0);
+        const minQuantityBA = Math.min(quantityBidB ?? 0, quantityAskA ?? 0);
 
         const spreadAB = bestBidA - bestAskB;
         const spreadPercentAB = (spreadAB / bestAskB) * 100;
@@ -158,6 +166,7 @@ export function updateArbitrageSpread() {
           exchangeTo: exA.exchange,
           symbol,
           spread: spreadAB,
+          quantity: minQuantityAB,
           spreadPercent: spreadPercentAB,
           spreadPercentFees: spreadPercentABWithFees,
           bids: exA.bids,
@@ -180,6 +189,7 @@ export function updateArbitrageSpread() {
           exchangeTo: exB.exchange,
           symbol,
           spread: spreadBA,
+          quantity: minQuantityBA,
           spreadPercent: spreadPercentBA,
           spreadPercentFees: spreadPercentBAWithFees,
           bids: exB.bids,
