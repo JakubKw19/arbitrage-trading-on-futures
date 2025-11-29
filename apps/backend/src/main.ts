@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
 import { auth } from '@repo/auth';
 import { PrismaClient } from '@prisma/client';
+import { AppDataSource } from './data-source';
 
 declare const module: any;
 
@@ -21,6 +22,8 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
+
+  await AppDataSource.initialize();
 
   const port = configService.app.port;
 

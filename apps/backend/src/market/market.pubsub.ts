@@ -6,6 +6,7 @@ import {
   MarketExchange,
 } from './types/marketExchanges';
 import { GetSupportedExchangesDataInput } from './market.router';
+import { HistoricalDataService } from '../historical/historicalData.service';
 
 export const marketExchangesSubject = new BehaviorSubject<MarketExchange[]>([]);
 export const availableExchangesSubject =
@@ -16,6 +17,8 @@ export const arbitrageSpreadSubject = new BehaviorSubject<ArbitrageSpread[]>(
 export const groupedArbitrageSubject = new BehaviorSubject<GroupedArbitrage>(
   [],
 );
+
+let currentSpreads: ArbitrageSpread[] = [];
 
 const pairMap = new Map<string, MarketExchange>();
 const allArbitrageSpreads = new Map<string, ArbitrageSpread>();
@@ -48,6 +51,11 @@ function scheduleArbitrageCalculation() {
     processUpdates();
   }, 20); // 20ms debounce
 }
+
+setInterval(async () => {
+  if (currentSpreads.length === 0) return;
+  new HistoricalDataService().insertArbitrageSpread(currentSpreads);
+}, 10000);
 
 async function processUpdates() {
   if (isProcessingUpdate) {
@@ -209,7 +217,7 @@ export function updateArbitrageSpread() {
     }
   }
 
-  const currentSpreads = Array.from(allArbitrageSpreads.values());
+  currentSpreads = Array.from(allArbitrageSpreads.values());
   arbitrageSpreadSubject.next(currentSpreads);
   groupArbitrageByExchangePair(currentSpreads);
 }

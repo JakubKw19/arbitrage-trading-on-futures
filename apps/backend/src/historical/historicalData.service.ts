@@ -3,6 +3,10 @@ import * as https from 'https';
 import { createGunzip } from 'zlib';
 import { parse } from 'csv-parse';
 
+import { ArbitrageSpread as ArbitrageSpreadEntity } from '../database/entities/ArbitrageSpread.entity';
+import { AppDataSource } from '../data-source';
+import { ArbitrageSpread } from '../market/types/marketExchanges';
+
 @Injectable()
 export class HistoricalDataService {
   async streamBookTicker(exchange) {
@@ -31,5 +35,15 @@ export class HistoricalDataService {
     //       });
     //   });
     // });
+  }
+
+  async insertArbitrageSpread(data: ArbitrageSpread[]) {
+    try {
+      const repo = AppDataSource.getRepository(ArbitrageSpreadEntity);
+      await repo.save(data as ArbitrageSpreadEntity[]);
+      console.log(`Inserted ${data.length} spreads into DB`);
+    } catch (err) {
+      console.error('Failed to write arbitrage spreads:', err);
+    }
   }
 }

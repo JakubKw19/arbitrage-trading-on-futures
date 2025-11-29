@@ -2,8 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '../config/config.module';
 import { ConfigService } from '../config/config.service';
-import { BinanceMarketData } from './entities/binanceMarketData.entity';
-import { OkxMarketData } from './entities/okxMarketData.entity';
+// import { BinanceMarketData } from './entities/binanceMarketData.entity';
+// import { OkxMarketData } from './entities/okxMarketData.entity';
+import { ArbitrageSpread } from './entities/ArbitrageSpread.entity';
 // import { MarketData } from "./entities/market-data.entity"
 // import { ArbitrageOpportunity } from "./entities/arbitrage-opportunity.entity"
 
@@ -19,10 +20,12 @@ import { OkxMarketData } from './entities/okxMarketData.entity';
         username: configService.database.username,
         password: configService.database.password,
         database: configService.database.name,
-        entities: [BinanceMarketData, OkxMarketData],
+        synchronize: false,
+        migrations: ['/migrations/*.ts'],
+        entities: [ArbitrageSpread],
       }),
     }),
-    TypeOrmModule.forFeature([BinanceMarketData, OkxMarketData]),
+    TypeOrmModule.forFeature([ArbitrageSpread]),
   ],
   exports: [TypeOrmModule],
 })
